@@ -1,0 +1,55 @@
+##
+## Copyright (c) 2024 BedRock Systems, Inc.
+## This software is distributed under the terms of the BedRock Open-Source
+## License. See the LICENSE-BedRock file in the repository root for details.
+##
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'pipeline'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+stages:
+  - gen
+  - dyn
+
+ci-gen:
+  image: registry.gitlab.com/bedrocksystems/docker-image:cpp2v-llvm16-coq819
+  stage: gen
+  tags:
+    - fm.shared
+  script:
+    - env
+    - >
+      if [[ $ORIGIN_CI_MERGE_REQUEST_LABELS =~ .*CI::same-branch.* ]]; then
+        BRANCH=$ORIGIN_CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+        echo "Triggered with CI::same-branch (with branch name $BRANCH)."
+        if git fetch origin $BRANCH 2> /dev/null; then
+          echo "Branch $BRANCH exists in the fm-ci repository."
+          BRANCH_COMMIT=$(git rev-parse refs/remotes/origin/$BRANCH)
+          MERGE_BASE=$(git merge-base refs/remotes/origin/$BRANCH HEAD)
+          echo "Commit hashes of interest:"
+          echo " - main: $(git rev-parse HEAD)"
+          echo " - $BRANCH: $BRANCH_COMMIT (will be selected)"
+          echo " - merge base: $MERGE_BASE (unused)"
+          git fetch origin $BRANCH_COMMIT
+          git checkout $BRANCH_COMMIT
+        else
+          echo "Branch $BRANCH does not exists in the fm-ci repository."
+        fi
+      fi
+    - dune exec -- ./gen/gen.exe ${CI_JOB_TOKEN} repos.conf gen-config.yml
+  artifacts:
+    paths:
+      - gen-config.yml
+
+trigger-dynamic:
+  stage: dyn
+  needs:
+    - ci-gen
+  trigger:
+    include:
+      - artifact: gen-config.yml
+        job: ci-gen
+    strategy: depend
