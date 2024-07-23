@@ -110,14 +110,14 @@ let rev_parse : Repo.t -> string -> string option = fun repo branch ->
   | (0, _     ) -> panic "Unexpected output for command %S." cmd
   | (_, _     ) -> None
 
-(** [main_merge_base repo branch] gives the commit hash for the git merge base
-    the given [branch] and the main branch of [repo]. Like with [rev_parse], a
-    clone of the repo is assumed to be available under [repos_destdir]. *)
-let main_merge_base : Repo.t -> string -> string = fun repo branch ->
+(** [main_merge_base repo hash] gives the commit hash of the git merge base of
+    the given [hash] and the main branch of [repo]. Like [rev_parse], a clone
+    of the repo is assumed to be available under [repos_destdir]. *)
+let main_merge_base : Repo.t -> string -> string = fun repo hash ->
   let cmd =
     Printf.sprintf
-      "git -C %s/%s merge-base refs/remotes/origin/%s refs/remotes/origin/%s" 
-      repos_destdir repo.Repo.name branch repo.Repo.main_branch
+      "git -C %s/%s merge-base refs/remotes/origin/%s %s" 
+      repos_destdir repo.Repo.name repo.Repo.main_branch hash
   in
   Thunk.run @@ process_out ~cmd @@ fun lines i ->
   match (i, lines) with
@@ -151,16 +151,17 @@ let repo_hashes : Repo.t -> string option -> hashes = fun repo same_branch ->
     | None       ->
         panic "Cannot find the hash of branch %s for %s." main_branch name
   in
-  match same_branch with
-  | None         -> {main_branch; mr_branch = None; merge_base = None}
-  | Some(branch) ->
   let mr_branch =
     match change with
     | `BranchIs(hash) -> Some(hash)
-    | _               -> rev_parse repo branch
+    | _               ->
+    match same_branch with
+    | None         -> None
+    | Some(branch) -> rev_parse repo branch
   in
   let merge_base =
-    Option.map (fun _ -> main_merge_base repo branch) mr_branch
+    let get_merge_base hash = main_merge_base repo hash in
+    Option.map get_merge_base mr_branch
   in
   {main_branch; mr_branch; merge_base}
 
