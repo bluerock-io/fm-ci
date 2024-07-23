@@ -458,7 +458,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   begin match ref_build with None -> () | Some(ref_build) ->
   (* Checkout the commit hashes for the reference build, and build. *)
   line "    #### REF BUILD ####";
-  line "    - make -sj ${NJOBS} gitclean";
+  line "    - make -sj ${NJOBS} gitclean > /dev/null";
   checkout_commands oc ref_build;
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
@@ -500,7 +500,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - mv perf-data $CI_PROJECT_DIR/perf-data_ref";
   (* Checkout the commit hashes for the main build again, and compare perf. *)
   line "    #### PERF ANALYSIS ####";
-  line "    - make -sj ${NJOBS} gitclean";
+  line "    - make -sj ${NJOBS} gitclean > /dev/null";
   checkout_commands oc main_build;
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
