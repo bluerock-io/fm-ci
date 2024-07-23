@@ -345,6 +345,16 @@ let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
   line "      - scheduler_failure";
   line "      - stale_schedule"
 
+let bhv_cloning : Out_channel.t -> string -> unit = fun oc destdir ->
+  let cmd fmt = Printf.fprintf oc ("    - " ^^ fmt ^^ "\n") in
+  let (_, hash) =
+    try List.find (fun (r, _) -> r.Repo.name = "bhv") main_build
+    with Not_found -> panic "No repo data for bhv."
+  in
+  cmd "git clone --depth 1 %a %s" repo_url "bhv" destdir;
+  cmd "git -C %s fetch --quiet origin %s" destdir hash;
+  cmd "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
+
 let main_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
@@ -353,7 +363,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    # Print environment for debug.";
   line "    - env";
   line "    # Initialize a bhv checkout.";
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" build_dir;
+  bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
@@ -630,7 +640,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   (* We only want fmdeps, so clone everything in a temporary directory. *)
   line "    # Initialize a bhv checkout.";
   let clone_dir = "/tmp/clone-dir" in
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" clone_dir;
+  bhv_cloning oc clone_dir;
   line "    - cd %s" clone_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
@@ -686,7 +696,7 @@ let cpp2v_core_llvm_job : Out_channel.t -> string -> unit = fun oc llvm ->
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" build_dir;
+  bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
@@ -712,7 +722,7 @@ let cpp2v_core_public_job : Out_channel.t -> string -> unit = fun oc llvm ->
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" build_dir;
+  bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
@@ -772,7 +782,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" build_dir;
+  bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
@@ -813,7 +823,7 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  line "    - git clone --depth 1 %a %s" repo_url "bhv" build_dir;
+  bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
