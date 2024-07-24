@@ -30,6 +30,11 @@ This means that CI for such a repository simply triggers a pipeline on `fm-ci`
 the CI request, and parameters like merge request labels. All the variables in
 the trigger have their standard name, prefixed with `ORIGIN_`.
 
+**Note:** in repositories part of a subgroup (e.g., `formal-methods`) variable
+`$CI_PROJECT_TITLE` should be prefixed with the group name. For example, CI in
+[formal-methods/stdpp](https://gitlab.com/bedrocksystems/formal-methods/stdpp)
+requires `formal-methods/$CI_PROJECT_TITLE` instead of `$CI_PROJECT_TITLE`.
+
 ## Support for `CI::same-branch`
 
 The `CI::same-branch` label can be set in MRs of any FM repository, and it has
@@ -63,3 +68,47 @@ the list of FM repositories they depend on.
 
 The generation process is documented in the various OCaml files, the main file
 being `gen/gen.ml`.
+
+## Support for `FM-CI-Compare`
+
+The `FM-CI-Compare` label can be set in MRs of any FM repository, so as to run
+a performance comparison. The label only affects the main building job, called
+`full-build-compare` when the label is set, and `full-build` otherwise.
+
+When the label is set, the CI configuration generation script must determine a
+reference branch for all involved repositories (either just the one triggering
+the pipeline in the originating MR, or potentially several repositories if the
+`CI::same-branch` label is also set). For other repositories, the reference is
+simply their main branch (as specified in the configuration file). For all the
+involved repositories, the reference commit is defined as the `git merge-base`
+of the main branch and the MR branch.
+
+The `full-build-compare` job proceeds as follows:
+1. Clone `bhv` and checkout the branch for the main build.
+2. Run `make init` and checkout the main build commits for all sub-repos.
+3. Run the build, and copy the resulting `_build` folder.
+4. Run `make gitclean` and checkout the reference build commits for all repos.
+5. Run the build, and copy the resulting `_build` folder as well.
+6. Run `make gitclean` again, and checkout the main build commits again.
+7. Generate the performance data based on the two copied `_build` folders.
+
+Note that step 3 is allowed to fail, but we remember its status so that we can
+make the full job fail accordingly when the end of the job is reached. This is
+useful to get partial performance data even if not all files build. Unlike the
+main build, the reference build is not allowed to fail.
+
+## Possible improvements
+
+### Fully Uniform Configuration for Other FM Repositories
+
+We should rely on `CI_PROJECT_PATH` instead of `CI_PROJECT_TITLE`, this way we
+wound not have to change the config for repos in sub-groups.
+
+### Support `CI::same-branch` When the Config Changes
+
+This is only relevant when there is an `fm-ci` branch. In that case, we should
+inspect the repos configuration of both `main`, and the branch, since they may
+not have the same set of repositories.
+
+The logic then needs to be changed in the `full-build-compare` job, so that we
+run `make init` for `bhv` also for the reference build.
