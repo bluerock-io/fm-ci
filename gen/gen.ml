@@ -49,11 +49,16 @@ let _ =
   match trigger with
   | None          -> perr "Pipeline triggered directly from from fm-ci."
   | Some(trigger) ->
-  let Info.{project_title; commit_sha; commit_branch} = trigger in
-  perr "Pipeline triggered from %s (%s)." project_title commit_sha;
-  Option.iter (perr "Branch pipeline for: %s.") commit_branch;
-  if List.for_all (fun Repo.{name; _} -> name <> project_title) repos then
-    panic "Repository %s not specified in the config." project_title
+  let Info.{project_title; project_path; project_name; _} = trigger in
+  let Info.{commit_sha; commit_branch; _} = trigger in
+  perr "Pipeline triggered from another repository:";
+  perr " - Project title: %s" project_title;
+  perr " - Project path : %s" project_path;
+  perr " - Project name : %s" project_name;
+  perr " - Commit sha   : %s" commit_sha;
+  Option.iter (perr " - Commit branch: %s (branch pipeline)") commit_branch;
+  if List.for_all (fun Repo.{name; _} -> name <> project_name) repos then
+    panic "Repository %s not specified in the config." project_name
 
 let _ =
   (* Output info: MR information. *)
@@ -61,13 +66,14 @@ let _ =
   match mr with
   | None     -> perr "Pipeline without an associated MR."
   | Some(mr) ->
-  let Info.{mr_iid; mr_labels; mr_project_id; _} = mr in
-  let Info.{mr_source_branch_name; pipeline_url; _} = mr in
+  let Info.{mr_iid; mr_labels; mr_project_id; pipeline_url; _} = mr in
+  let Info.{mr_source_branch_name; mr_target_branch_name; _} = mr in
   perr "Pipeline with an associated MR:";
   perr " - IID       : %s" mr_iid;
   perr " - labels    : [%s]" (String.concat ", " mr_labels);
   perr " - project ID: %s" mr_project_id;
   perr " - branch    : %s" mr_source_branch_name;
+  perr " - target    : %s (unused yet)" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
 
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
@@ -137,8 +143,8 @@ let repo_hashes : Repo.t -> string option -> hashes = fun repo same_branch ->
   let change =
     match trigger with
     | None                                      -> `NoChange
-    | Some(Info.{project_title; commit_sha; _}) ->
-    if project_title <> name then `NoChange else
+    | Some(Info.{project_name; commit_sha; _}) ->
+    if project_name <> name then `NoChange else
     if mr = None then `MainIs(commit_sha) else
     `BranchIs(commit_sha)
   in
@@ -228,14 +234,14 @@ let _ =
   match ref_build with
   | None            -> perr "No reference build."
   | Some(ref_build) ->
-  perr "Commit hashes for the reference build build:";
+  perr "Commit hashes for the reference build:";
   let print_info (Repo.{name; _}, hash) = perr " - %s: %s" name hash in
   List.iter print_info ref_build
 
 (** Repositories that need to be fully built. *)
 let repos_needing_full_build : Repo.t list =
   (* Job comes from fm-ci: everything needs a full build. *)
-  match trigger with None -> repos | Some(Info.{project_title=origin; _}) ->
+  match trigger with None -> repos | Some(Info.{project_name=origin; _}) ->
   (* No MR: everything downstream of [origin] needs a full build. *)
   match mr with None -> Repo.all_downstream_from ~repos [origin] | Some(_) ->
   (* MR: everything downstream of a repo with a branch needs a full build. *)
@@ -620,10 +626,10 @@ let nova_job : Out_channel.t -> unit = fun oc ->
           let branch = Sys.getenv_opt "CI_COMMIT_BRANCH" in
           source = Some("push") && branch = Some(fm_ci_main_branch)
       | Some(trigger) ->
-          let Info.{project_title; commit_branch; _} = trigger in
+          let Info.{project_name; commit_branch; _} = trigger in
           match commit_branch with
           | None                -> false
-          | Some(commit_branch) -> main_branch project_title = commit_branch
+          | Some(commit_branch) -> main_branch project_name = commit_branch
     in
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
@@ -806,9 +812,9 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   (* Only publish the pages on master branch pipelines from cpp2v-core. *)
   let publish =
     match trigger with None -> false | Some(trigger) ->
-    let Info.{project_title; commit_branch; _} = trigger in
+    let Info.{project_name; commit_branch; _} = trigger in
     match commit_branch with None -> false | Some(commit_branch) ->
-    project_title = "cpp2v-core" && main_branch "cpp2v-core" = commit_branch
+    project_name = "cpp2v-core" && main_branch "cpp2v-core" = commit_branch
   in
   if publish then cpp2v_core_pages_publish oc
 

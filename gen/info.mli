@@ -5,6 +5,8 @@
     trigger comes from a merge to the main branch. *)
 type trigger_info = {
   project_title : string;
+  project_path : string;
+  project_name : string;
   commit_sha : string;
   commit_branch : string option;
 }
@@ -16,6 +18,7 @@ type mr_info = {
   mr_labels : string list;
   mr_project_id : string;
   mr_source_branch_name : string;
+  mr_target_branch_name : string;
   pipeline_url : string;
 }
 
