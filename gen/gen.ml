@@ -73,7 +73,7 @@ let _ =
   perr " - labels    : [%s]" (String.concat ", " mr_labels);
   perr " - project ID: %s" mr_project_id;
   perr " - branch    : %s" mr_source_branch_name;
-  perr " - target    : %s (unused yet)" mr_target_branch_name;
+  perr " - target    : %s" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
 
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
@@ -107,7 +107,7 @@ let _ =
 let rev_parse : Repo.t -> string -> string option = fun repo branch ->
   let cmd =
     Printf.sprintf
-      "git -C %s/%s rev-parse --verify --quiet refs/remotes/origin/%s" 
+      "git -C %s/%s rev-parse --verify --quiet refs/remotes/origin/%s"
       repos_destdir repo.Repo.name branch
   in
   Thunk.run @@ process_out ~cmd @@ fun lines i ->
@@ -116,14 +116,16 @@ let rev_parse : Repo.t -> string -> string option = fun repo branch ->
   | (0, _     ) -> panic "Unexpected output for command %S." cmd
   | (_, _     ) -> None
 
-(** [main_merge_base repo hash] gives the commit hash of the git merge base of
-    the given [hash] and the main branch of [repo]. Like [rev_parse], a clone
-    of the repo is assumed to be available under [repos_destdir]. *)
-let main_merge_base : Repo.t -> string -> string = fun repo hash ->
+(** [merge_base repo hash1 hash2] yields the commit hash of the git merge base
+    of the given hashes, [hash1] and [hash2], in repository [repo]. Note that,
+    as with [rev_parse], a clone of the repo is assumed to be available (under
+    the [repos_destdir] directory). *)
+let merge_base : Repo.t -> string -> string -> string =
+    fun repo hash1 hash2 ->
   let cmd =
     Printf.sprintf
-      "git -C %s/%s merge-base refs/remotes/origin/%s %s" 
-      repos_destdir repo.Repo.name repo.Repo.main_branch hash
+      "git -C %s/%s merge-base %s %s"
+      repos_destdir repo.Repo.name hash1 hash2
   in
   Thunk.run @@ process_out ~cmd @@ fun lines i ->
   match (i, lines) with
@@ -132,80 +134,120 @@ let main_merge_base : Repo.t -> string -> string = fun repo hash ->
 
 (** Type gathering commit hashes of interest for a repo. *)
 type hashes = {
-  main_branch : string;
+  target_branch : string;
   mr_branch : string option;
   merge_base : string option;
 }
 
-(** [repo_hashes repo same_branch] XXX *)
-let repo_hashes : Repo.t -> string option -> hashes = fun repo same_branch ->
-  let Repo.{name; main_branch; _} = repo in
-  let change =
-    match trigger with
-    | None                                      -> `NoChange
-    | Some(Info.{project_name; commit_sha; _}) ->
-    if project_name <> name then `NoChange else
-    if mr = None then `MainIs(commit_sha) else
-    `BranchIs(commit_sha)
-  in
-  let main_branch =
-    match change with
-    | `MainIs(hash) -> hash
-    | _             ->
-    match rev_parse repo main_branch with
-    | Some(hash) -> hash
-    | None       ->
-        panic "Cannot find the hash of branch %s for %s." main_branch name
-  in
-  let mr_branch =
-    match change with
-    | `BranchIs(hash) -> Some(hash)
-    | _               ->
-    match same_branch with
-    | None         -> None
-    | Some(branch) -> rev_parse repo branch
-  in
-  let merge_base =
-    let get_merge_base hash = main_merge_base repo hash in
-    Option.map get_merge_base mr_branch
-  in
-  {main_branch; mr_branch; merge_base}
+(** Indicates the name of the MR branch when the pipeline is triggered from an
+    MR with ["CI::same-branch"] enabled. *)
+let same_branch : string option =
+  match mr with None -> None | Some(mr) ->
+  let same_branch = List.mem "CI::same-branch" mr.Info.mr_labels in
+  if same_branch then Some(mr.Info.mr_source_branch_name) else None
 
-(** Extended version of [repos] with hashes. *)
-let repos_with_hashes : (Repo.t * hashes) list =
-  let add_hashes repo =
-    let same_branch =
-      match mr with
-      | None                                             -> None
-      | Some(Info.{mr_source_branch_name; mr_labels; _}) ->
-      if not (List.mem "CI::same-branch" mr_labels) then None else
-      Some(mr_source_branch_name)
-    in
-    (repo, repo_hashes repo same_branch)
+(** Gives the name of the MR target branch when the pipeline is triggered from
+    an MR, and its target branch is not the main branch (as configured). *)
+let target_branch : string option =
+  match mr with None -> None | Some(mr) ->
+  let main_branch =
+    match trigger with
+    | None          -> "main"
+    | Some(trigger) -> main_branch trigger.Info.project_name
   in
-  List.map add_hashes repos
+  let target_branch = mr.Info.mr_target_branch_name in
+  if main_branch = target_branch then None else Some(target_branch)
+
+(** [repo_hashes repo] returns a pair [(target_branch_name, hashes)], in which
+    [target_branch_name] is the name for the target branch for [repo], and the
+    [hashes] record gives relevant commit hashes, where [hashes.target_branch]
+    is the commit hash of [target_branch_name]. *)
+let repo_hashes : Repo.t -> string * hashes = fun repo ->
+  let Repo.{name; main_branch; _} = repo in
+  (* If triggered from [repo], commit hash from the initial trigger. *)
+  let trigger_commit_hash =
+    match trigger with None -> None | Some(trigger) ->
+    if name <> trigger.Info.project_name then None else
+    Some(trigger.Info.commit_sha)
+  in
+  let branch_hash branch =
+    match rev_parse repo branch with Some(hash) -> hash | _ ->
+    panic "Cannot find the hash of branch %s for %s." branch name
+  in
+  let fallback_to_main () =
+    let target_branch = branch_hash main_branch in
+    (main_branch, {target_branch; mr_branch = None; merge_base = None})
+  in
+  match (mr, same_branch, trigger_commit_hash) with
+  | (None   , _           , Some(hash)) ->
+      (* Push pipeline (to main) and triggering repo: use trigger hash. *)
+      (main_branch, {target_branch=hash; mr_branch=None; merge_base=None})
+  | (None   , _           , None      ) ->
+      (* Push pipeline (to main) and not triggering repo: use main hash. *)
+      fallback_to_main ()
+  | (Some(_), _           , Some(hash)) ->
+      (* MR pipeline and triggering repo: use trigger hash for MR branch. *)
+      let target_branch_name =
+        match target_branch with
+        | None         -> main_branch
+        | Some(branch) -> branch
+      in
+      let target_branch = branch_hash target_branch_name in
+      let mr_branch = Some(hash) in
+      let merge_base =
+        let merge_base hash = merge_base repo target_branch hash in
+        Option.map merge_base mr_branch
+      in
+      (target_branch_name, {target_branch; mr_branch; merge_base})
+  | (Some(_), None        , None      ) ->
+      (* MR pipeline, not triggering repo, no CI::same-branch. *)
+      fallback_to_main ()
+  | (Some(_), Some(branch), None      ) ->
+      (* MR pipeline, not triggering repo, CI::same-branch. *)
+      match rev_parse repo branch with
+      | None                      -> fallback_to_main () (* No branch. *)
+      | Some(branch) as mr_branch ->
+      (* The MR branch exists on the repo, compute the target branch. *)
+      let (target_branch_name, target_branch) =
+        match target_branch with
+        | None         ->
+            (* No special target branch, use main. *)
+            (main_branch, branch_hash main_branch)
+        | Some(target) ->
+            (* Use the special target branch if it exists. *)
+            match rev_parse repo target with
+            | Some(hash) -> (target, hash)
+            | None       -> (main_branch, branch_hash main_branch)
+      in
+      let merge_base = Some(merge_base repo target_branch branch) in
+      (target_branch_name, {target_branch; mr_branch; merge_base})
+
+(** Extended version of [repos] with the target branch name and hashes. *)
+let repos_with_hashes : (Repo.t * (string * hashes)) list =
+  List.map (fun repo -> (repo, repo_hashes repo)) repos
 
 let _ =
   (* Output info: computed data for all the repos. *)
   perr "#### Data for all repositories ####";
-  let pp_repo (repo, hashes) =
+  let pp_repo (repo, (target_branch_name, hashes)) =
     let deps = String.concat ", " repo.Repo.deps in
     perr "%s:" repo.Repo.name;
-    perr " - bhv path   : %s" repo.Repo.bhv_path;
-    perr " - main branch: %s" repo.Repo.main_branch;
-    perr " - deps       : [%s]" deps;
-    perr " - main hash  : %s" hashes.main_branch;
-    Option.iter (perr " - branch hash: %s") hashes.mr_branch;
-    Option.iter (perr " - merge base : %s") hashes.merge_base
+    perr " - bhv path     : %s" repo.Repo.bhv_path;
+    perr " - main branch  : %s" repo.Repo.main_branch;
+    perr " - deps         : [%s]" deps;
+    perr " - target branch: %s" target_branch_name;
+    perr " - target hash  : %s" hashes.target_branch;
+    Option.iter (perr " - branch hash  : %s") hashes.mr_branch;
+    Option.iter (perr " - merge base   : %s") hashes.merge_base
   in
   List.iter pp_repo repos_with_hashes
 
 (** Commit hashes for the main build step. *)
 let main_build : (Repo.t * string) list =
-  let with_main_build_hash (repo, hashes) =
+  let with_main_build_hash (repo, (_, hashes)) =
     match hashes.mr_branch with
     | Some(hash) -> (repo, hash)
-    | None       -> (repo, hashes.main_branch)
+    | None       -> (repo, hashes.target_branch)
   in
   List.map with_main_build_hash repos_with_hashes
 
@@ -222,10 +264,10 @@ let ref_build : (Repo.t * string) list option =
   | None     -> None
   | Some(mr) ->
   if not (List.mem "FM-CI-Compare" mr.Info.mr_labels) then None else
-  let with_ref_build_hash (repo, hashes) =
+  let with_ref_build_hash (repo, (_, hashes)) =
     match hashes.merge_base with
     | Some(hash) -> (repo, hash)
-    | None       -> (repo, hashes.main_branch)
+    | None       -> (repo, hashes.target_branch)
   in
   Some(List.map with_ref_build_hash repos_with_hashes)
 
@@ -245,11 +287,11 @@ let repos_needing_full_build : Repo.t list =
   (* No MR: everything downstream of [origin] needs a full build. *)
   match mr with None -> Repo.all_downstream_from ~repos [origin] | Some(_) ->
   (* MR: everything downstream of a repo with a branch needs a full build. *)
-  let has_branch (repo, hashes) =
+  let has_branch (repo, (_, hashes)) =
     match hashes.mr_branch with
-    | None                                  -> None
-    | Some(br) when br = hashes.main_branch -> None
-    | Some(_ )                              -> Some(repo.Repo.name)
+    | None                                    -> None
+    | Some(br) when br = hashes.target_branch -> None
+    | Some(_ )                                -> Some(repo.Repo.name)
   in
   let with_branch = List.filter_map has_branch repos_with_hashes in
   Repo.all_downstream_from ~repos with_branch
@@ -606,7 +648,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "      codequality: gl-code-quality-report.json"
 
 let nova_job : Out_channel.t -> unit = fun oc ->
-  let (nova, hashes) =
+  let (nova, (_, hashes)) =
     try List.find (fun (Repo.{name; _}, _) -> name = "NOVA") repos_with_hashes
     with Not_found -> panic "No config found for NOVA."
   in

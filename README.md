@@ -99,6 +99,15 @@ make the full job fail accordingly when the end of the job is reached. This is
 useful to get partial performance data even if not all files build. Unlike the
 main build, the reference build is not allowed to fail.
 
+## Support for "Non-Main" MR Targets
+
+When an MR targets a branch that is different from the configured repository's
+main branch, the reference commit used for performance comparison is chosen to
+be that of the target branch (or a merge base of that and the MR branch). When
+`CI::same-branch` is set, the reference commit for repos that did not initiate
+the MR is taken from a branch with the same name, if it exists. Otherwise, the
+reference is taken to be the main branch.
+
 ## Possible improvements
 
 ### Support `CI::same-branch` When the Config Changes
