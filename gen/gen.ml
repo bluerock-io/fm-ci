@@ -33,6 +33,12 @@ let trim_cache =
 (** Pipeline information. *)
 let Info.{trigger; mr} = Info.from_env ()
 
+(* XXX *)
+let trigger =
+  match trigger with
+  | Some(Info.{project_name = "formal-methods/fm-ci"; _}) -> None
+  | _                                                     -> trigger
+
 (** [main_branch project] gives the name of the main branch of [project]. This
     relies on the configuration file, and the code panics if no project with a
     corresponding name exists. *)
