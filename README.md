@@ -17,8 +17,10 @@ trigger:
     ORIGIN_CI_MERGE_REQUEST_LABELS: $CI_MERGE_REQUEST_LABELS
     ORIGIN_CI_MERGE_REQUEST_PROJECT_ID: $CI_MERGE_REQUEST_PROJECT_ID
     ORIGIN_CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    ORIGIN_CI_MERGE_REQUEST_TARGET_BRANCH_NAME: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
     ORIGIN_CI_PIPELINE_SOURCE: $CI_PIPELINE_SOURCE
     ORIGIN_CI_PIPELINE_URL: $CI_PIPELINE_URL
+    ORIGIN_CI_PROJECT_PATH: $CI_PROJECT_PATH
     ORIGIN_CI_PROJECT_TITLE: $CI_PROJECT_TITLE
   trigger:
     project: bedrocksystems/formal-methods/fm-ci
@@ -98,11 +100,6 @@ useful to get partial performance data even if not all files build. Unlike the
 main build, the reference build is not allowed to fail.
 
 ## Possible improvements
-
-### Fully Uniform Configuration for Other FM Repositories
-
-We should rely on `CI_PROJECT_PATH` instead of `CI_PROJECT_TITLE`, this way we
-wound not have to change the config for repos in sub-groups.
 
 ### Support `CI::same-branch` When the Config Changes
 
