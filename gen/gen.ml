@@ -10,9 +10,6 @@ let _ =
 (** GitLab token. *)
 let token : string = Sys.argv.(1)
 
-(** Name of the main branch on fm-ci (the current repository). *)
-let fm_ci_main_branch = "main"
-
 (** Configuration for the repos. *)
 let repos : Repo.t list = Repo.repos_from_config Sys.argv.(2)
 
@@ -22,6 +19,12 @@ let yaml_file : string = Sys.argv.(3)
 (** Directory where the repositories are cloned. *)
 let repos_destdir = "repos"
 
+(** Project name for fm-ci (the current repository). *)
+let fm_ci_project_name = "formal-methods/fm-ci"
+
+(** Name of the main branch on fm-ci (the current repository). *)
+let fm_ci_main_branch = "main"
+
 (** Should we trim the dune cache? *)
 let trim_cache =
   match Sys.getenv_opt "TRIM_DUNE_CACHE" with
@@ -30,41 +33,37 @@ let trim_cache =
   | Some("true" ) -> true
   | Some(s      ) -> panic "Unexpected value for TRIM_DUNE_CACHE: %S." s
 
-(** Pipeline information. *)
-let Info.{trigger; mr} = Info.from_env ()
-
-(* XXX *)
-let trigger =
-  match trigger with
-  | Some(Info.{project_name = "formal-methods/fm-ci"; _}) -> None
-  | _                                                     -> trigger
-
-(** [main_branch project] gives the name of the main branch of [project]. This
-    relies on the configuration file, and the code panics if no project with a
-    corresponding name exists. *)
-let main_branch : string -> string = fun project ->
-  let repo =
-    try List.find (fun Repo.{name; _} -> name = project) repos
-    with Not_found -> panic "No repo data for %s." project
-  in
-  repo.Repo.main_branch
+(** Information about the originating repository (trigger). *)
+let trigger = Info.get_trigger ()
 
 let _ =
-  (* Output info: originating repository. *)
+  (* Output info: originating repository / trigger. *)
   perr "#### Originating repository ####";
-  match trigger with
-  | None          -> perr "Pipeline triggered directly from from fm-ci."
-  | Some(trigger) ->
   let Info.{project_title; project_path; project_name; _} = trigger in
   let Info.{commit_sha; commit_branch; _} = trigger in
-  perr "Pipeline triggered from another repository:";
-  perr " - Project title: %s" project_title;
-  perr " - Project path : %s" project_path;
-  perr " - Project name : %s" project_name;
-  perr " - Commit sha   : %s" commit_sha;
-  Option.iter (perr " - Commit branch: %s (branch pipeline)") commit_branch;
+  let Info.{pipeline_source; trigger_kind; _} = trigger in
+  perr "Pipeline triggered from repository %s:" project_title;
+  perr " - Project title  : %s" project_title;
+  perr " - Project path   : %s" project_path;
+  perr " - Project name   : %s" project_name;
+  perr " - Commit sha     : %s" commit_sha;
+  perr " - Pipeline source: %s" pipeline_source;
+  perr " - Trigger kind   : %s" trigger_kind;
+  Option.iter (perr " - Commit branch  : %s (branch pipeline)") commit_branch
+
+(** Is the trigger comming from fm-ci (the current repository). *)
+let trigger_is_fm_ci : bool =
+  trigger.Info.project_name = fm_ci_project_name
+
+(** Check that the trigger comes from a known project. *)
+let _ =
+  match trigger_is_fm_ci with true -> () | false ->
+  let project_name = trigger.Info.project_name in
   if List.for_all (fun Repo.{name; _} -> name <> project_name) repos then
     panic "Repository %s not specified in the config." project_name
+
+(** Information about the originating MR, if any. *)
+let mr = Info.get_mr ()
 
 let _ =
   (* Output info: MR information. *)
@@ -81,6 +80,17 @@ let _ =
   perr " - branch    : %s" mr_source_branch_name;
   perr " - target    : %s" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
+
+(** [main_branch project] gives the name of the main branch of [project]. This
+    relies on the configuration file, and the code panics if no project with a
+    corresponding name exists. *)
+let main_branch : string -> string = fun project ->
+  if project = fm_ci_project_name then fm_ci_main_branch else
+  let repo =
+    try List.find (fun Repo.{name; _} -> name = project) repos
+    with Not_found -> panic "No repo data for %s." project
+  in
+  repo.Repo.main_branch
 
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
     thunk is returned, and it should be run to wait for the process. The clone
@@ -156,11 +166,7 @@ let same_branch : string option =
     an MR, and its target branch is not the main branch (as configured). *)
 let target_branch : string option =
   match mr with None -> None | Some(mr) ->
-  let main_branch =
-    match trigger with
-    | None          -> "main"
-    | Some(trigger) -> main_branch trigger.Info.project_name
-  in
+  let main_branch = main_branch trigger.Info.project_name in
   let target_branch = mr.Info.mr_target_branch_name in
   if main_branch = target_branch then None else Some(target_branch)
 
@@ -172,7 +178,7 @@ let repo_hashes : Repo.t -> string * hashes = fun repo ->
   let Repo.{name; main_branch; _} = repo in
   (* If triggered from [repo], commit hash from the initial trigger. *)
   let trigger_commit_hash =
-    match trigger with None -> None | Some(trigger) ->
+    if trigger_is_fm_ci then None else
     if name <> trigger.Info.project_name then None else
     Some(trigger.Info.commit_sha)
   in
@@ -289,7 +295,8 @@ let _ =
 (** Repositories that need to be fully built. *)
 let repos_needing_full_build : Repo.t list =
   (* Job comes from fm-ci: everything needs a full build. *)
-  match trigger with None -> repos | Some(Info.{project_name=origin; _}) ->
+  if trigger_is_fm_ci then repos else
+  let Info.{project_name=origin; _} = trigger in
   (* No MR: everything downstream of [origin] needs a full build. *)
   match mr with None -> Repo.all_downstream_from ~repos [origin] | Some(_) ->
   (* MR: everything downstream of a repo with a branch needs a full build. *)
@@ -668,16 +675,10 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   let gen_name =
     let master_merge =
       match mr with Some(_) -> false | None ->
-      match trigger with
-      | None          ->
-          let source = Sys.getenv_opt "CI_PIPELINE_SOURCE" in
-          let branch = Sys.getenv_opt "CI_COMMIT_BRANCH" in
-          source = Some("push") && branch = Some(fm_ci_main_branch)
-      | Some(trigger) ->
-          let Info.{project_name; commit_branch; _} = trigger in
-          match commit_branch with
-          | None                -> false
-          | Some(commit_branch) -> main_branch project_name = commit_branch
+      let Info.{project_name; commit_branch; _} = trigger in
+      match commit_branch with
+      | None                -> false
+      | Some(commit_branch) -> main_branch project_name = commit_branch
     in
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
@@ -859,7 +860,6 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   line "      - html";
   (* Only publish the pages on master branch pipelines from cpp2v-core. *)
   let publish =
-    match trigger with None -> false | Some(trigger) ->
     let Info.{project_name; commit_branch; _} = trigger in
     match commit_branch with None -> false | Some(commit_branch) ->
     project_name = "cpp2v-core" && main_branch "cpp2v-core" = commit_branch
