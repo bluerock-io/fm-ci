@@ -3,17 +3,22 @@
     from the triggering pipeline. The commit branch is only available when the
     triggering job is from branch pipeline: it can be used to test whether the
     trigger comes from a merge to the main branch. *)
-type trigger_info = {
+type trigger = {
   project_title : string;
   project_path : string;
   project_name : string;
   commit_sha : string;
   commit_branch : string option;
+  pipeline_source : string;
+  trigger_kind : string;
 }
+
+(** [get_trigger ()] constructs trigger information from the environment. *)
+val get_trigger : unit -> trigger
 
 (** Information on the MR that initiated the pipeline (either a trigger to the
     fm-ci repository, or directly a pipeline from fm-ci). *)
-type mr_info = {
+type mr = {
   mr_iid : string;
   mr_labels : string list;
   mr_project_id : string;
@@ -22,11 +27,6 @@ type mr_info = {
   pipeline_url : string;
 }
 
-(** Information on the pipeline. *)
-type t = {
-  trigger : trigger_info option;
-  mr      : mr_info option;
-}
-
-(** [from_env ()] constructs pipeline information form the environment. *)
-val from_env : unit -> t
+(** [get_mr ()] constructs MR information from the environment, or returns the
+    value [None] if there is no MR. *)
+val get_mr : unit -> mr option
