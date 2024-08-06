@@ -416,17 +416,37 @@ let bhv_cloning : Out_channel.t -> string -> unit = fun oc destdir ->
   cmd "git -C %s fetch --quiet origin %s" destdir hash;
   cmd "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
 
+
 let main_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect =
+    let fresh_name =
+      let counter = ref 0 in
+      fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
+    in
+    fun spaces header ?(collapsed=true) cmd ->
+    let name = fresh_name () in
+    (* magic strings taken from
+       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
+       on 2024/08/06 *)
+    if collapsed then
+      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|} spaces name header
+    else
+      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|} spaces name header;
+    cmd ();
+    line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|} spaces name
+  in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
   common ~image:"cpp2v-llvm16-coq819" ~dune_cache:(full_timing = `No) oc;
   line "  script:";
   line "    # Print environment for debug.";
-  line "    - env";
+  sect "    " "Environment" (fun () ->
+  line "    - env");
   line "    # Initialize a bhv checkout.";
   bhv_cloning oc build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  sect "    " "Initialize bhv" (fun () ->
+  line "    - time make -j ${NJOBS} init");
   line "    - make dump_repos_info";
   line "    # Create Directory structure for dune";
   line "    - mkdir -p ~/.cache/ ~/.config/dune/";
@@ -440,17 +460,20 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 16384";
   line "    # Install the python deps.";
-  line "    - pip3 install -r python_requirements.txt";
+  sect "    " "Install dependencies" (fun () ->
+  line "    - pip3 install -r python_requirements.txt");
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
-  checkout_commands oc main_build;
+  sect "    " "Check out main branches" (fun () ->
+  checkout_commands oc main_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
   line "    - rm -rf %s" failure_file;
+  sect "    " "Build ASTs" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS} @ast || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE AST STAGE\")"
-                failure_file;
+                failure_file);
   line "    - checksum_asts() { \
                 find _build/default -name '*_[ch]pp.v' -o \
                   -name '*_[ch]pp_names.v' | \
@@ -491,6 +514,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - du -hc $(find _build -type f -name \"*.glob\") | tail -n 1";
   line "    # Compute FM stats.";
   line "    - mkdir -p $CI_PROJECT_DIR/fm-stats/_build/default/apps/vswitch";
+  sect "    " "stash.sh (all)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default /dev/null";
   line "    - ./support/fm/stats2json.py -g . -i \
                 /tmp/_tmp_build-dir_full_spec_names.stats \
@@ -499,22 +523,24 @@ let main_job : Out_channel.t -> unit = fun oc ->
                 > _build_default.stats";
   line "    - cp /tmp/*.stats $CI_PROJECT_DIR/fm-stats/_build/default";
   line "    - cp /tmp/*.json $CI_PROJECT_DIR/fm-stats/_build/default";
-  line "    - rm /tmp/*.stats /tmp/*.json";
+  line "    - rm /tmp/*.stats /tmp/*.json");
+  sect "    " "stash.sh (vswitch)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default/apps/vswitch \
                 _build/default/zeta";
   line "    - ./support/fm/stats.sh -v _build/default/apps/vswitch \
                 _build/default/zeta > _build_default_apps_vswitch.stats";
   line "    - cp /tmp/*.stats \
                 $CI_PROJECT_DIR/fm-stats/_build/default/apps/vswitch";
-  line "    - cp *.stats $CI_PROJECT_DIR/fm-stats";
+  line "    - cp *.stats $CI_PROJECT_DIR/fm-stats");
   line "    # Extract data.";
   line "    - find _build/ -name '*.vo'| sort | xargs md5sum \
                 > $CI_PROJECT_DIR/md5sums.txt";
   line "    - dune exec -- globfs.extract-all ${NJOBS} _build/default";
+  sect "    " "Generate code quality report" (fun () ->
   line "    - (cd _build/default && dune exec -- coqc-perf.report .) | \
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
-                > $CI_PROJECT_DIR/gl-code-quality-report.json";
+                > $CI_PROJECT_DIR/gl-code-quality-report.json");
   if ref_build <> None then begin
   line "    - dune exec -- coqc-perf.extract-all _build/default perf-data";
   line "    - dune exec -- hint-data.extract-all ${NJOBS} perf-data";
@@ -530,7 +556,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   (* Checkout the commit hashes for the reference build, and build. *)
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  checkout_commands oc ref_build;
+  sect "    " "Check out reference branches" (fun () ->
+  checkout_commands oc ref_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
   line "    - ./fm-build.py -b -j${NJOBS} @ast";
@@ -540,7 +567,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
-  line "    - dune build @ast -j ${NJOBS}";
+  sect "    " "Build ASTs (reference)" (fun () ->
+  line "    - dune build @ast -j ${NJOBS}");
   line "    - checksum_asts";
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
@@ -572,7 +600,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   (* Checkout the commit hashes for the main build again, and compare perf. *)
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  checkout_commands oc main_build;
+  sect "    " "Check out main branches (again)" (fun () ->
+  checkout_commands oc main_build);
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/fm-ci-tools";
