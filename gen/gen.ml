@@ -485,9 +485,10 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
+  sect "    " "Build ASTs" (fun () ->
   line "    - dune build @ast -j ${NJOBS} || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE SECOND AST STAGE\")"
-                failure_file;
+                failure_file);
   line "    - checksum_asts";
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
