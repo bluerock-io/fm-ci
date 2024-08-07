@@ -561,7 +561,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   checkout_commands oc ref_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
-  line "    - ./fm-build.py -b -j${NJOBS} @ast";
+  sect "    " "Build reference ASTs" (fun () ->
+  line "    - ./fm-build.py -b -j${NJOBS} @ast");
   line "    - checksum_asts";
   line "    - cp ast_md5sums.txt $CI_PROJECT_DIR/ast_md5sums_ref.txt";
   if full_timing = `Full then begin
