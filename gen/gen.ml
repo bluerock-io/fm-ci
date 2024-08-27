@@ -900,7 +900,6 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
 (* TODO (FM-4443): generalize to:
    1) run on all [.v] artifacts
    2) produce a code quality report that is consumeable by gitlab. *)
-(* TODO (CI): upstream coq linting tool to [fm-ci-tools] repo. *)
 let proof_tidy : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "proof-tidy:";
@@ -915,15 +914,15 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   checkout_commands oc main_build;
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
-  line "    - python3 support/fm-tidy/coq_lint.py --use-ci-output-format \
+  line "    - python3 ./fmdeps/fm-ci-tools/fm-tidy/coq_lint.py --use-ci-output-format \
                 --proof-dirs apps/vswitch/lib/forwarding/proof/ \
                 apps/vswitch/lib/port/proof/ \
                 # apps/vswitch/lib/vswitch/proof/";
   line "    # Apply a generic linting policy to all child [.v] files, \
                 enforcing avoidance of imports/exports written using [From]";
-  line "    - python3 support/fm-tidy/coq_lint.py \
+  line "    - python3 ./fmdeps/fm-ci-tools/fm-tidy/coq_lint.py \
                 --use-ci-output-format apps/vswitch";
-  line "    - python3 support/fm-tidy/coq_lint.py
+  line "    - python3 ./fmdeps/fm-ci-tools/fm-tidy/coq_lint.py
                 --use-ci-output-format apps/vmm/"
 
 let output_config : Out_channel.t -> unit = fun oc ->
