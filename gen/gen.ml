@@ -493,18 +493,18 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
   line "    # Actual build.";
+  line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
-  line "    - ((dune build -j ${NJOBS} \
-                @default @runtest 2>&1 | ocaml \
-                  ./fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml && \
+  line "    - ((dune build -j ${NJOBS} @default @runtest 2>&1 | \
+                  _build/install/default/bin/filter-dune-output && \
                 make dune_check -j${NJOBS}) && echo) || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\")"
                 failure_file;
   end else begin
   line "    - ((dune build -j${NJOBS} \
-                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | ocaml \
-                  ./fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml) && \
-                  echo) || (\
+                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
+                  _build/install/default/bin/filter-dune-output) && echo) \
+                || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\")"
                 failure_file;
   end;
@@ -575,15 +575,15 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
   line "    # Actual build.";
+  line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
-  line "    - (dune build -j ${NJOBS} \
-                @default @runtest 2>&1 | ocaml \
-                  ./fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml && \
+  line "    - (dune build -j ${NJOBS} @default @runtest 2>&1 | \
+                _build/install/default/bin/filter-dune-output && \
                 make dune_check -j${NJOBS}) && echo"
   end else begin
   line "    - (dune build -j${NJOBS} \
-                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | ocaml \
-                  ./fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml) && echo"
+                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
+                  _build/install/default/bin/filter-dune-output) && echo"
   end;
   line "    # Print information on the size of the _build directory.";
   line "    - du -hs _build";
@@ -746,8 +746,9 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   (* Build and create installed artifact. *)
   line "    # Build.";
   line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - dune build _build/install/default/bin/filter-dune-output";
   line "    - dune build -j ${NJOBS} @install 2>&1 | \
-                ocaml fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml";
+                _build/install/default/bin/filter-dune-output";
   line "    # Prepare installed artifact.";
   line "    - rm -rf $CI_PROJECT_DIR/fm-install";
   line "    - mkdir $CI_PROJECT_DIR/fm-install";
@@ -795,9 +796,10 @@ let cpp2v_core_llvm_job : Out_channel.t -> string -> unit = fun oc llvm ->
   (* Build cpp2v-core including tests. *)
   line "    # Build.";
   line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - dune build _build/install/default/bin/filter-dune-output";
   line "    - dune build -j ${NJOBS} \
                 fmdeps/cpp2v-core @fmdeps/cpp2v-core/runtest 2>&1 | \
-                ocaml fmdeps/fm-ci-tools/fm_dune/filter_dune_output.ml"
+                _build/install/default/bin/filter-dune-output"
 
 let cpp2v_core_public_job : Out_channel.t -> string -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
