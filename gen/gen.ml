@@ -830,6 +830,7 @@ let cpp2v_core_public_job : Out_channel.t -> string -> unit = fun oc llvm ->
                 ./fmdeps/cpp2v-core/coq-lens";
   line "    - opam install --assume-depexts -y \
                 coq-upoly coq-cpp2v coq-cpp2v-bin coq-lens coq-lens-elpi"
+[@@warning "-32"]
 
 let cpp2v_core_pages_publish : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
@@ -940,7 +941,7 @@ let output_config : Out_channel.t -> unit = fun oc ->
   if needs_full_build "cpp2v-core" then begin
     cpp2v_core_llvm_job oc "17";
     cpp2v_core_llvm_job oc "18";
-    cpp2v_core_public_job oc "16";
+    (*cpp2v_core_public_job oc "16";*)
     cpp2v_core_pages_job oc;
   end
 
