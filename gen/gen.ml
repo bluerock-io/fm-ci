@@ -609,6 +609,10 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - dune build fmdeps/fm-ci-tools";
   line "    - mv $CI_PROJECT_DIR/perf-data perf-data";
   line "    - mv $CI_PROJECT_DIR/perf-data_ref perf-data_ref";
+  line "    - cp perf-data/perf_summary.csv \
+                $CI_PROJECT_DIR/perf_summary.csv";
+  line "    - cp perf-data_ref/perf_summary.csv \
+                $CI_PROJECT_DIR/perf_summary_ref.csv";
   line "    - dune exec -- coqc-perf.summary-diff \
                 --assume-missing-unchanged --no-colors --instr-threshold 1 \
                 perf-data_ref/perf_summary.csv perf-data/perf_summary.csv \
@@ -687,6 +691,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "      - hint_data_diff.html";
   line "      - hint-data.csv";
   line "      - hint-data_ref.csv ";
+  line "      - perf_summary.csv";
+  line "      - perf_summary_ref.csv";
   end;
   line "    reports:";
   line "      codequality: gl-code-quality-report.json"
