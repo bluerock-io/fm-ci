@@ -437,7 +437,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
     line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|} spaces name
   in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
-  common ~image:"cpp2v-llvm16-coq819" ~dune_cache:(full_timing = `No) oc;
+  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:(full_timing = `No) oc;
   line "  script:";
   line "    # Print environment for debug.";
   sect "    " "Environment" (fun () ->
@@ -730,7 +730,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "%s:" gen_name;
-  common ~image:"cpp2v-llvm16-coq819" ~dune_cache:true oc;
+  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -792,7 +792,7 @@ let cpp2v_core_llvm_job : Out_channel.t -> string -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-llvm-%s:" llvm;
-  let image = Printf.sprintf "cpp2v-llvm%s-coq819" llvm in
+  let image = Printf.sprintf "fm-llvm%s-2024-09-16" llvm in
   common ~image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
@@ -819,7 +819,7 @@ let cpp2v_core_public_job : Out_channel.t -> string -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-public-llvm-%s:" llvm;
-  let image = Printf.sprintf "cpp2v-public-llvm%s-coq819" llvm in
+  let image = Printf.sprintf "fm-llvm%s-2024-09-16" llvm in
   common ~image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
@@ -881,7 +881,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:"fm-docs-coq819" ~dune_cache:false oc;
+  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:false oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -895,12 +895,11 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   line "    # Create Directory structure for dune";
   line "    - mkdir -p ~/.cache/ ~/.config/dune/";
   line "    - cp support/fm/dune_config ~/.config/dune/config";
-  (* Pin the packages. *)
+  (* Build the pages. *)
   line "    # Build the pages.";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - cd fmdeps/cpp2v-core";
   line "    - git submodule update --init";
-  line "    - opam install -y odoc camlzip";
   line "    - make -j ${NJOBS} doc";
   line "    - mv doc/sphinx/_build/html $CI_PROJECT_DIR/html";
   line "  artifacts:";
@@ -920,7 +919,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
 let proof_tidy : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "proof-tidy:";
-  common ~image:"cpp2v-llvm16-coq819" ~dune_cache:true oc;
+  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
