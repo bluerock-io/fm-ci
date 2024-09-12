@@ -471,8 +471,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   let failure_file = "/tmp/main_build_failure" in
   line "    - rm -rf %s" failure_file;
   sect "    " "Build ASTs" (fun () ->
-  line "    - ./fm-build.py -b -j${NJOBS} @ast || (\
-                touch %s; echo \"MAIN BUILD FAILED AT THE AST STAGE\")"
+  line "    - (./fm-build.py -b -j${NJOBS} @ast || (\
+                touch %s; echo \"MAIN BUILD FAILED AT THE AST STAGE\"))"
                 failure_file);
   line "    - checksum_asts() { \
                 find _build/default -name '*_[ch]pp.v' -o \
@@ -486,8 +486,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
   sect "    " "Build ASTs" (fun () ->
-  line "    - dune build @ast -j ${NJOBS} || (\
-                touch %s; echo \"MAIN BUILD FAILED AT THE SECOND AST STAGE\")"
+  line "    - (dune build @ast -j ${NJOBS} || (touch %s; \
+                echo \"MAIN BUILD FAILED AT THE SECOND AST STAGE\"))"
                 failure_file);
   line "    - checksum_asts";
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
@@ -496,16 +496,16 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
   line "    - ((dune build -j ${NJOBS} @default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output && \
-                make dune_check -j${NJOBS}) && echo) || (\
-                touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\")"
+                  _build/install/default/bin/filter-dune-output; \
+                make dune_check -j${NJOBS}) || (\
+                touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
   end else begin
   line "    - ((dune build -j${NJOBS} \
                 @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output) && echo) \
+                  _build/install/default/bin/filter-dune-output) \
                 || (\
-                touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\")"
+                touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
   end;
   line "    # Print information on the size of the _build directory.";
@@ -538,7 +538,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
                 > $CI_PROJECT_DIR/md5sums.txt";
   line "    - dune exec -- globfs.extract-all ${NJOBS} _build/default";
   sect "    " "Generate code quality report" (fun () ->
-  line "    - (cd _build/default && dune exec -- coqc-perf.report .) | \
+  line "    - (cd _build/default; dune exec -- coqc-perf.report .) | \
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
                 > $CI_PROJECT_DIR/gl-code-quality-report.json");
@@ -578,12 +578,12 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
   line "    - (dune build -j ${NJOBS} @default @runtest 2>&1 | \
-                _build/install/default/bin/filter-dune-output && \
-                make dune_check -j${NJOBS}) && echo"
+                _build/install/default/bin/filter-dune-output; \
+                make dune_check -j${NJOBS})"
   end else begin
   line "    - (dune build -j${NJOBS} \
                 @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output) && echo"
+                  _build/install/default/bin/filter-dune-output)"
   end;
   line "    # Print information on the size of the _build directory.";
   line "    - du -hs _build";
