@@ -542,11 +542,19 @@ let main_job : Out_channel.t -> unit = fun oc ->
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
                 > $CI_PROJECT_DIR/gl-code-quality-report.json");
-  if ref_build <> None then begin
   line "    - dune exec -- coqc-perf.extract-all _build/default perf-data";
   line "    - dune exec -- hint-data.extract-all ${NJOBS} perf-data";
   line "    - du -hs _build";
   line "    - du -hs perf-data";
+  if ref_build = None then begin
+  (* Minimal data gathering when no reference build. *)
+  line "    - cp perf-data/perf_summary.csv \
+                $CI_PROJECT_DIR/perf_summary.csv";
+  line "    - find perf-data -type f -name \"*.hints.csv\" | \
+                dune exec -- coqc-perf.gather-hint-data \
+                > $CI_PROJECT_DIR/hint-data.csv"
+  end else begin
+  (* Data collection happens after the reference build, put data aside. *)
   line "    - mv perf-data $CI_PROJECT_DIR/perf-data";
   end;
   (* Copy ".v.d" files and skip empty folders (--exclude="*" is used to skip
@@ -680,6 +688,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "      - ast_md5sums.txt";
   line "      - md5sums.txt";
   line "      - fm-stats";
+  line "      - hint-data.csv";
+  line "      - perf_summary.csv";
   if ref_build <> None then begin
   line "      - statusm_ref.txt";
   line "      - ast_md5sums_ref.txt";
@@ -689,9 +699,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "      - perf_analysis.csv";
   line "      - perf_analysis_gitlab.md";
   line "      - hint_data_diff.html";
-  line "      - hint-data.csv";
   line "      - hint-data_ref.csv ";
-  line "      - perf_summary.csv";
   line "      - perf_summary_ref.csv";
   end;
   line "    reports:";
