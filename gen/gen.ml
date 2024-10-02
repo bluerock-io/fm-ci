@@ -25,6 +25,13 @@ let fm_ci_project_name = "formal-methods/fm-ci"
 (** Name of the main branch on fm-ci (the current repository). *)
 let fm_ci_main_branch = "main"
 
+(** CI image for a given version of LLVM (only 16 to 18 exist). *)
+let ci_image : llvm:int -> string = fun ~llvm ->
+  Printf.sprintf "fm-llvm%i-2024-09-16" llvm
+
+(** Main CI image, with latest supported LLVM. *)
+let main_image = ci_image ~llvm:18
+
 (** Should we trim the dune cache? *)
 let trim_cache =
   match Sys.getenv_opt "TRIM_DUNE_CACHE" with
@@ -353,7 +360,7 @@ let output_static : Out_channel.t -> unit = fun oc ->
   line "    - if: $CI_PIPELINE_SOURCE == 'parent_pipeline'";
   line ""
 
-let ci_image oc tag =
+let common_ci_image oc tag =
   let registry = "registry.gitlab.com/bedrocksystems/docker-image" in
   Printf.fprintf oc "%s:%s" registry tag
 
@@ -377,7 +384,7 @@ let artifacts_url =
 let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
     fun ~image ~dune_cache oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  line "  image: %a" ci_image image;
+  line "  image: %a" common_ci_image image;
   line "  tags:";
   line "    - fm.nfs";
   line "  variables:";
@@ -437,7 +444,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
     line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|} spaces name
   in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
-  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:(full_timing = `No) oc;
+  common ~image:main_image ~dune_cache:(full_timing = `No) oc;
   line "  script:";
   line "    # Print environment for debug.";
   sect "    " "Environment" (fun () ->
@@ -730,7 +737,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "%s:" gen_name;
-  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:true oc;
+  common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -788,12 +795,11 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   line "    branch: %s" nova_branch;
   line "    strategy: depend"
 
-let cpp2v_core_llvm_job : Out_channel.t -> string -> unit = fun oc llvm ->
+let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
-  line "cpp2v-llvm-%s:" llvm;
-  let image = Printf.sprintf "fm-llvm%s-2024-09-16" llvm in
-  common ~image ~dune_cache:true oc;
+  line "cpp2v-llvm-%i:" llvm;
+  common ~image:(ci_image ~llvm) ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -815,12 +821,11 @@ let cpp2v_core_llvm_job : Out_channel.t -> string -> unit = fun oc llvm ->
                 fmdeps/cpp2v-core @fmdeps/cpp2v-core/runtest 2>&1 | \
                 _build/install/default/bin/filter-dune-output"
 
-let cpp2v_core_public_job : Out_channel.t -> string -> unit = fun oc llvm ->
+let cpp2v_core_public_job : Out_channel.t -> int -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
-  line "cpp2v-public-llvm-%s:" llvm;
-  let image = Printf.sprintf "fm-llvm%s-2024-09-16" llvm in
-  common ~image ~dune_cache:true oc;
+  line "cpp2v-public-llvm-%i:" llvm;
+  common ~image:(ci_image ~llvm) ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -881,7 +886,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:false oc;
+  common ~image:main_image ~dune_cache:false oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -919,7 +924,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
 let proof_tidy : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "proof-tidy:";
-  common ~image:"fm-llvm16-2024-09-16" ~dune_cache:true oc;
+  common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -952,8 +957,8 @@ let output_config : Out_channel.t -> unit = fun oc ->
   if needs_full_build "NOVA" then nova_job oc;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job oc "17";
-    cpp2v_core_llvm_job oc "18";
+    cpp2v_core_llvm_job oc 16;
+    cpp2v_core_llvm_job oc 17;
     (*cpp2v_core_public_job oc "16";*)
     cpp2v_core_pages_job oc;
   end
