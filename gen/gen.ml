@@ -890,7 +890,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:main_image ~dune_cache:false oc;
+  common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
