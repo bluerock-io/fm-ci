@@ -1,0 +1,36 @@
+FROM registry.gitlab.com/bedrocksystems/docker-image:fm-base-2024-10-28
+
+ARG LLVM_MAJ_VER="16"
+ENV LLVM_VER=${LLVM_MAJ_VER}
+
+RUN echo "deb [trusted=yes] http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-${LLVM_VER} main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+
+RUN sudo apt-get update -qy \
+ && sudo apt-get install -y \
+      llvm-${LLVM_VER} libllvm${LLVM_VER} llvm-${LLVM_VER}-dev \
+      llvm-${LLVM_VER}-runtime clang-${LLVM_VER} clang-tools-${LLVM_VER} \
+      libclang-common-${LLVM_VER}-dev libclang-${LLVM_VER}-dev \
+      libclang1-${LLVM_VER} lld-${LLVM_VER} \
+ && sudo apt-get clean
+
+# Provide standardized location for llvm
+RUN sudo ln -s /usr/lib/llvm-${LLVM_VER} /usr/lib/llvm
+
+# Keep the format in sync with build/Dockerfile
+RUN sudo ln -s /usr/lib/llvm/bin/clang++ /usr/bin/
+RUN sudo ln -s ld.lld-${LLVM_VER} /usr/bin/ld.lld
+
+# Ensure a /usr/bin/perf binary exists; we bind-mount over this the correct
+# version from the host.
+RUN sudo touch /usr/bin/perf
+
+ENV DOCKER_IMAGE_VERSION=br-deps-${BR_FM_DEPS_VERSION}-LLVM-${LLVM_VER}-${BR_FM_CI_IMAGE_VERSION}
+
+RUN git config --global --add safe.directory '*'
+ENV llvm_base_dir=/usr/lib/llvm/bin
+ENV LLVM_BASE_DIR=${llvm_base_dir}/
+ENV CC=${LLVM_BASE_DIR}clang
+ENV CXX=${LLVM_BASE_DIR}clang++
+# Set PATH for both interactive and scripted users.
+ENV PATH=${llvm_base_dir}:"$PATH"
+RUN echo PATH=${llvm_base_dir}:'"$PATH"' >> ~coq/.profile
