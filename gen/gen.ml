@@ -34,11 +34,11 @@ let main_image = ci_image ~llvm:18
 
 (** Should we trim the dune cache? *)
 let trim_cache =
-  match Sys.getenv_opt "TRIM_DUNE_CACHE" with
+  match Sys.getenv_opt "FM_CI_TRIM_DUNE_CACHE" with
   | None          -> false
   | Some("false") -> false
   | Some("true" ) -> true
-  | Some(s      ) -> panic "Unexpected value for TRIM_DUNE_CACHE: %S." s
+  | Some(s      ) -> panic "Unexpected value for FM_CI_TRIM_DUNE_CACHE: %S." s
 
 (** Information about the originating repository (trigger). *)
 let trigger = Info.get_trigger ()
