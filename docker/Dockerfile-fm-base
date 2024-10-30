@@ -1,0 +1,64 @@
+# BSD 3-Clause License (from https://github.com/coq-community/docker-base)
+# (Not much is left from the original though.)
+# https://github.com/coq-community/docker-base/blob/master/base/bare/Dockerfile
+# https://github.com/coq-community/docker-base/blob/master/LICENSE
+FROM debian:bookworm
+
+ENV OPAM_VERSION="2.2.1"
+ENV DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "--login", "-o", "pipefail", "-c"]
+
+# hadolint ignore=DL3008
+RUN cat /proc/cpuinfo /proc/meminfo \
+ && [ -n "${OPAM_VERSION}" ] \
+ && apt-get update -y -q \
+ && apt-get install -y -q --no-install-recommends autoconf automake \
+      build-essential ca-certificates curl git less libgmp-dev m4 \
+      openssh-client pkg-config rlwrap rsync sudo time unzip swi-prolog \
+      libffi-dev zlib1g-dev bsdmainutils git-lfs m4 zip cmake linux-perf \
+      moreutils python3-pip python3-venv python3-setuptools libgtk-3-dev \
+      libgtksourceview-3.0-dev \
+ && set -x \
+ && echo "" | bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)" \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# Add Coq group and user with sudo perms
+RUN groupadd -g 1008 coq \
+ && useradd --no-log-init -m -s /bin/bash -g coq -G sudo -p '' -u 1008 coq \
+ && mkdir -p -v /home/coq/bin /home/coq/.local/bin \
+ && chown coq:coq /home/coq/bin /home/coq/.local /home/coq/.local/bin
+
+WORKDIR /home/coq
+USER coq
+
+ENV PATH="/home/coq/.local/bin:${PATH}"
+
+ENV NJOBS="6"
+ENV OPAMPRECISETRACKING="1"
+
+ENV BR_FM_DEPS_VERSION="2024-10-28"
+
+# Bump this number whenever the image is updated without changing the
+# BR_FM_DEPS_VERSION (this is useful for NOVA CI caching invalidation).
+ENV BR_FM_CI_IMAGE_VERSION="1"
+
+COPY files /tmp/files
+
+# Preparing python dependencies.
+RUN python3 -m venv .pyenv \
+ && ./.pyenv/bin/python -m pip install -r /tmp/files/python_deps.txt \
+ && echo ". ~/.pyenv/bin/activate" >> .profile
+
+# Preparing the opam switch.
+RUN set -x \
+ && opam init --bare --disable-sandboxing --shell-setup \
+ && opam repo add --dont-select coq-released "https://coq.inria.fr/opam/released" \
+ && opam repo add --dont-select iris-dev "git+https://gitlab.mpi-sws.org/iris/opam.git" \
+ && opam switch create --empty --repositories=iris-dev,default,coq-released main \
+ && opam update -y \
+ && opam install -y /tmp/files/br-fm-deps.opam \
+ && /tmp/files/opam-clean
+
+CMD ["/bin/bash", "--login"]

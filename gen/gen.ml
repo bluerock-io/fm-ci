@@ -22,12 +22,9 @@ let repos_destdir = "repos"
 (** Project name for fm-ci (the current repository). *)
 let fm_ci_project_name = "formal-methods/fm-ci"
 
-(** Name of the main branch on fm-ci (the current repository). *)
-let fm_ci_main_branch = "main"
-
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
-  Printf.sprintf "fm-llvm%i-2024-09-16" llvm
+  Printf.sprintf "fm-llvm%i-2024-10-28" llvm
 
 (** Main CI image, with latest supported LLVM. *)
 let main_image = ci_image ~llvm:18
@@ -96,7 +93,6 @@ let _ =
     relies on the configuration file, and the code panics if no project with a
     corresponding name exists. *)
 let main_branch : string -> string = fun project ->
-  if project = fm_ci_project_name then fm_ci_main_branch else
   let repo =
     try List.find (fun Repo.{name; _} -> name = project) repos
     with Not_found -> panic "No repo data for %s." project
@@ -890,7 +886,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:main_image ~dune_cache:false oc;
+  common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";

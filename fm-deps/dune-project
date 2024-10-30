@@ -1,0 +1,52 @@
+(lang dune 3.8)
+
+(generate_opam_files)
+
+(authors
+ "Rodolphe Lepigre <rodolphe@bluerock.io>"
+ "Jan-Oliver Kaiser <janno@bluerock.io>")
+
+(maintainers
+ "Rodolphe Lepigre <rodolphe@bluerock.io>"
+ "Jan-Oliver Kaiser <janno@bluerock.io>")
+
+(package
+ (name br-fm-deps)
+ (synopsis "External deps for the BlueRock toolchain")
+ (homepage "https://gitlab.com/bedrocksystems/formal-methods/fm-ci")
+ (bug_reports "https://gitlab.com/bedrocksystems/formal-methods/fm-ci/-/issues")
+ (license "LGPL-2.1-only")
+ (allow_empty)
+ (depends
+  ; OCaml version and tooling.
+  (ocaml-variants (= 4.14.2+options))
+  "ocaml-option-flambda"
+  (dune (= 3.16.0))
+  (odoc (= 2.4.2))
+  merlin
+  ; OCaml libraries.
+  (yojson (= 2.2.2))
+  (ctypes (= 0.23.0))
+  (ctypes-foreign (= 0.23.0))
+  (integers (= 0.7.0))
+  (mtime (= 2.1.0))
+  (camlzip (= 1.12))
+  (atdgen (= 2.15.0))
+  (atdts (= 2.15.0))
+  (ppx_optcomp (= v0.15.0))
+  (fileutils (= 0.6.4))
+  (cmdliner (= 1.3.0))
+  (ocamlfind (= 1.9.6))
+  (sexplib (= v0.15.1))
+  (ppx_import (= 1.11.0))
+  (ppx_deriving (= 6.0.2))
+  (ppx_sexp_conv (= v0.15.1))
+  (ppx_compare (= v0.15.0))
+  (ppx_hash (= v0.15.0))
+  (ppx_deriving_yojson (= 3.9.0))
+  (cmdliner (= 1.3.0))
+  (toml (= 7.1.0))
+  (yaml (= 3.2.0))
+  (memtrace (= 0.2.3))
+  (zarith (= 1.14))
+  (lablgtk3-sourceview3 (= 3.1.5))))
