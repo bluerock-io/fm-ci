@@ -25,6 +25,7 @@ trigger:
     ORIGIN_CI_PROJECT_PATH: $CI_PROJECT_PATH
     ORIGIN_CI_PROJECT_TITLE: $CI_PROJECT_TITLE
     FM_CI_TRIGGER_KIND: $FM_CI_TRIGGER_KIND
+    FM_CI_TRIM_DUNE_CACHE: $FM_CI_TRIM_DUNE_CACHE
   trigger:
     project: bedrocksystems/formal-methods/ci-backfire
     branch: main
