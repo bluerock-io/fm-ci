@@ -38,7 +38,7 @@ ENV PATH="/home/coq/.local/bin:${PATH}"
 ENV NJOBS="6"
 ENV OPAMPRECISETRACKING="1"
 
-ENV BR_FM_DEPS_VERSION="2024-10-28"
+ENV BR_FM_DEPS_VERSION="2024-11-01"
 
 # Bump this number whenever the image is updated without changing the
 # BR_FM_DEPS_VERSION (this is useful for NOVA CI caching invalidation).

@@ -24,7 +24,7 @@ let fm_ci_project_name = "formal-methods/fm-ci"
 
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
-  Printf.sprintf "fm-llvm%i-2024-10-28" llvm
+  Printf.sprintf "fm-llvm%i-2024-11-01" llvm
 
 (** Main CI image, with latest supported LLVM. *)
 let main_image = ci_image ~llvm:18

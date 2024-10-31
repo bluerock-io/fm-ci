@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-fmdeps_version=2024-10-28
+fmdeps_version=2024-11-01
 llvm_versions="16 17 18 19"
 
 echo "READ THE SOURCE TO USE"
