@@ -139,6 +139,21 @@ be that of the target branch (or a merge base of that and the MR branch). When
 the MR is taken from a branch with the same name, if it exists. Otherwise, the
 reference is taken to be the main branch.
 
+## Adding new Repositories
+
+Steps for adding new FM repositories:
+1. Create a clone of the repository on Gitlab (probably under the 
+   `formal-methods` group).
+2. Create a protected `br-main` branch.
+3. Add the repository to `bhv/boards/common/fm.mk`.
+4. Add the repository's path to `bhv/.gitignore`.
+5. Run `make clone` to check that everything works.
+6. Add the repository to `fm-ci/repos.conf`. (Do not forget to update the
+   dependencies.)
+
+In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token 
+permissions` and enable `All groups and projects`.
+
 ## Possible improvements
 
 ### Support `CI::same-branch` When the Config Changes
