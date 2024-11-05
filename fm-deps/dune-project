@@ -21,7 +21,10 @@
   ; OCaml version and tooling.
   (ocaml-variants (= 4.14.2+options))
   ocaml-option-flambda
-  ocaml-option-fp
+  (ocaml-option-fp
+   (and
+    (or (= :os "linux") (= :os "macos"))
+    (= :arch "x86_64")))
   (dune (= 3.16.0))
   (odoc (= 2.4.2))
   (ocp-indent (= 1.8.1))
