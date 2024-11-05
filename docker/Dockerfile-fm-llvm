@@ -1,4 +1,4 @@
-FROM registry.gitlab.com/bedrocksystems/docker-image:fm-base-2024-10-28
+FROM registry.gitlab.com/bedrocksystems/docker-image:fm-base-2024-11-01
 
 ARG LLVM_MAJ_VER="16"
 ENV LLVM_VER=${LLVM_MAJ_VER}
