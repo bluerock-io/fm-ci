@@ -7,6 +7,12 @@ let _ =
   perr "Usage: %s <TOKEN> <CONFIG_FILE> <OUTPUT_YAML_FILE>\n%!" Sys.argv.(0);
   exit 1
 
+(** Main version of SWI-Prolog (usable with all supported LLVM versions). *)
+let main_swipl_version = "9.2.7"
+
+(** Main version of LLVM (usable with all supported SWI-Prolog versions). *)
+let main_llvm_version = 18
+
 (** GitLab token. *)
 let token : string = Sys.argv.(1)
 
@@ -22,31 +28,8 @@ let repos_destdir = "repos"
 (** Project name for fm-ci (the current repository). *)
 let fm_ci_project_name = "formal-methods/fm-ci"
 
-(** CI image for a given version of LLVM (only 16 to 18 exist). *)
-let ci_image : swipl:string -> llvm:int -> string = fun ~swipl ~llvm ->
-  Printf.sprintf "fm-2024-11-01-swipl-%s-llvm-%i" swipl llvm
-
-(** CI image with the default version of SWI-Prolog. *)
-let ci_image_default_swipl : llvm:int -> string = fun ~llvm ->
-  ci_image ~swipl:"9.2.7" ~llvm
-
-(** Main CI image, with latest supported LLVM. *)
-let main_image = ci_image_default_swipl ~llvm:18
-
-(** Should we trim the dune cache? *)
-let trim_cache =
-  let var = "FM_CI_TRIM_DUNE_CACHE" in
-  match Sys.getenv_opt var with
-  | None          -> false
-  | Some("false") -> false
-  | Some("true" ) -> true
-  | Some(s)       ->
-  (* Not expanded means not defined, default to false. *)
-  if s = "$" ^ var then false else
-  panic "Unexpected value for %s: %S." var s
-
 (** Information about the originating repository (trigger). *)
-let trigger = Info.get_trigger ()
+let trigger = Info.get_trigger ~main_swipl_version
 
 let _ =
   (* Output info: originating repository / trigger. *)
@@ -54,6 +37,7 @@ let _ =
   let Info.{project_title; project_path; project_name; _} = trigger in
   let Info.{commit_sha; commit_branch; _} = trigger in
   let Info.{pipeline_source; trigger_kind; _} = trigger in
+  let Info.{trim_dune_cache; only_full_build; default_swipl; _} = trigger in
   perr "Pipeline triggered from repository %s:" project_title;
   perr " - Project title  : %s" project_title;
   perr " - Project path   : %s" project_path;
@@ -61,6 +45,9 @@ let _ =
   perr " - Commit sha     : %s" commit_sha;
   perr " - Pipeline source: %s" pipeline_source;
   perr " - Trigger kind   : %s" trigger_kind;
+  perr " - Trim dune cache: %b" trim_dune_cache;
+  perr " - Only full build: %b" only_full_build;
+  perr " - Default swipl  : %s" default_swipl;
   Option.iter (perr " - Commit branch  : %s (branch pipeline)") commit_branch
 
 (** Is the trigger comming from fm-ci (the current repository). *)
@@ -92,6 +79,17 @@ let _ =
   perr " - branch    : %s" mr_source_branch_name;
   perr " - target    : %s" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
+
+(** CI image for a given version of LLVM (only 16 to 18 exist). *)
+let ci_image : swipl:string -> llvm:int -> string = fun ~swipl ~llvm ->
+  Printf.sprintf "fm-2024-11-01-swipl-%s-llvm-%i" swipl llvm
+
+(** CI image with the default version of SWI-Prolog. *)
+let ci_image_default_swipl : llvm:int -> string = fun ~llvm ->
+  ci_image ~swipl:trigger.default_swipl ~llvm
+
+(** Main CI image, with latest supported LLVM. *)
+let main_image = ci_image_default_swipl ~llvm:main_llvm_version
 
 (** [main_branch project] gives the name of the main branch of [project]. This
     relies on the configuration file, and the code panics if no project with a
@@ -464,7 +462,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - cp support/fm/dune_config ~/.config/dune/config";
   line "    - rm -rf _build";
   (* Trim the dune cache if necessary. *)
-  if trim_cache then begin
+  if trigger.trim_dune_cache then begin
   line "    # Trimming the dune cache.";
   line "    - dune cache trim --size=64GB";
   end;
@@ -955,6 +953,8 @@ let output_config : Out_channel.t -> unit = fun oc ->
   output_static oc;
   (* Main bhv build with performance comparison support. *)
   main_job oc;
+  (* Stop here if we only want the full job. *)
+  match trigger.only_full_build with true -> () | false ->
   (* Proof tidy job. *)
   proof_tidy oc;
   (* Triggered NOVA build. *)
@@ -972,7 +972,4 @@ let _ =
   (* Generate the configuration. *)
   perr "#### Generating the configuration file ####";
   perr "Target file: %S." yaml_file;
-  perr "Will trim the dune cache: %b." trim_cache;
-  let oc = Out_channel.open_text yaml_file in
-  output_config oc;
-  Out_channel.close_noerr oc
+  Out_channel.with_open_text yaml_file output_config
