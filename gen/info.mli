@@ -11,10 +11,15 @@ type trigger = {
   commit_branch : string option;
   pipeline_source : string;
   trigger_kind : string;
+  trim_dune_cache : bool;
+  only_full_build : bool;
+  default_swipl : string;
 }
 
-(** [get_trigger ()] constructs trigger information from the environment. *)
-val get_trigger : unit -> trigger
+(** [get_trigger ~main_swipl_version] constructs triggern information from the
+    environemnt. The [main_swipl_version] parameter indicates the main version
+    of SWI-Prolog used in CI. *)
+val get_trigger : main_swipl_version:string -> trigger
 
 (** Information on the MR that initiated the pipeline (either a trigger to the
     fm-ci repository, or directly a pipeline from fm-ci). *)

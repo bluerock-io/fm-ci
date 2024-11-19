@@ -1,0 +1,138 @@
+# BSD 3-Clause License (from https://github.com/coq-community/docker-base)
+# (Not much is left from the original though.)
+# https://github.com/coq-community/docker-base/blob/master/base/bare/Dockerfile
+# https://github.com/coq-community/docker-base/blob/master/LICENSE
+
+FROM debian:bookworm
+
+SHELL ["/bin/bash", "--login", "-o", "pipefail", "-c"]
+
+### Install system packages ##################################################
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# hadolint ignore=DL3008
+RUN cat /proc/cpuinfo /proc/meminfo \
+ && apt-get update -y -q \
+ && apt-get install -y -q --no-install-recommends autoconf automake \
+      build-essential ca-certificates curl git less libgmp-dev m4 \
+      openssh-client pkg-config rlwrap rsync sudo time unzip ninja-build \
+      libffi-dev zlib1g-dev bsdmainutils git-lfs m4 zip cmake linux-perf \
+      moreutils python3-pip python3-venv python3-setuptools libgtk-3-dev \
+      libgtksourceview-3.0-dev \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+### Add Coq group and user with sudo perms ###################################
+
+RUN groupadd -g 1008 coq \
+ && useradd --no-log-init -m -s /bin/bash -g coq -G sudo -p '' -u 1008 coq \
+ && mkdir -p -v /home/coq/bin /home/coq/.local/bin \
+ && chown coq:coq /home/coq/bin /home/coq/.local /home/coq/.local/bin
+
+WORKDIR /home/coq
+USER coq
+
+ENV PATH="/home/coq/.local/bin:${PATH}"
+
+### Prepare the opam switch ##################################################
+
+ENV OPAM_VERSION="2.2.1"
+ENV NJOBS="6"
+ENV OPAMPRECISETRACKING="1"
+
+RUN set -x \
+  && echo "/home/coq/.local/bin" \
+  |  bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)"
+
+COPY files/br-fm-deps.opam /tmp/files/br-fm-deps.opam
+COPY files/opam-clean /tmp/files/opam-clean
+
+RUN set -x \
+ && opam init --bare --disable-sandboxing --shell-setup \
+ && opam repo add --dont-select coq-released "https://coq.inria.fr/opam/released" \
+ && opam repo add --dont-select iris-dev "git+https://gitlab.mpi-sws.org/iris/opam.git" \
+ && opam switch create --empty --repositories=iris-dev,default,coq-released main \
+ && opam update -y \
+ && opam install -y /tmp/files/br-fm-deps.opam \
+ && /tmp/files/opam-clean
+
+### Install python dependencies ##############################################
+#
+COPY files/python_deps.txt /tmp/files/python_deps.txt
+
+RUN python3 -m venv .pyenv \
+ && ./.pyenv/bin/python -m pip install -r /tmp/files/python_deps.txt \
+ && echo ". ~/.pyenv/bin/activate" >> .profile
+
+### Install SWI-Prolog #######################################################
+
+ARG BR_SWIPL_VERSION
+RUN test -n "${BR_SWIPL_VERSION}"
+
+RUN curl -O -L https://github.com/SWI-Prolog/swipl/archive/refs/tags/V${BR_SWIPL_VERSION}.tar.gz \
+ && tar -xf V${BR_SWIPL_VERSION}.tar.gz \
+ && rm V${BR_SWIPL_VERSION}.tar.gz \
+ && mv swipl-${BR_SWIPL_VERSION} swipl \
+ && mkdir swipl-build \
+ && cd swipl-build \
+ && cmake -DCMAKE_INSTALL_PREFIX=../.local -DSWIPL_PACKAGES=OFF \
+      -DINSTALL_DOCUMENTATION=OFF -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      ../swipl \
+ && ninja \
+ && ninja install \
+ && cd .. \
+ && rm -rf swipl-build swipl-build
+
+ENV PKG_CONFIG_PATH=/home/coq/.local/share/pkgconfig
+ENV SWI_HOME_DIR=/home/coq/.local/lib/swipl
+
+### Install LLVM #############################################################
+
+ARG BR_LLVM_MAJ_VER
+RUN test -n "${BR_LLVM_MAJ_VER}"
+
+ENV LLVM_VER=${BR_LLVM_MAJ_VER}
+
+RUN echo "deb [trusted=yes] http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-${LLVM_VER} main" \
+  | sudo tee -a /etc/apt/sources.list.d/llvm.list
+
+RUN sudo apt-get update -qy \
+ && sudo apt-get install -y \
+      llvm-${LLVM_VER} libllvm${LLVM_VER} llvm-${LLVM_VER}-dev \
+      llvm-${LLVM_VER}-runtime clang-${LLVM_VER} clang-tools-${LLVM_VER} \
+      libclang-common-${LLVM_VER}-dev libclang-${LLVM_VER}-dev \
+      libclang1-${LLVM_VER} lld-${LLVM_VER} \
+ && sudo apt-get clean
+
+# Provide standardized location for llvm
+RUN sudo ln -s /usr/lib/llvm-${LLVM_VER} /usr/lib/llvm
+
+RUN sudo ln -s /usr/lib/llvm/bin/clang++ /usr/bin/
+RUN sudo ln -s ld.lld-${LLVM_VER} /usr/bin/ld.lld
+
+# Ensure a /usr/bin/perf binary exists; we bind-mount over this the correct
+# version from the host.
+RUN sudo touch /usr/bin/perf
+
+### Environment setup ########################################################
+
+ARG BR_FMDEPS_VERSION
+RUN test -n "${BR_FMDEPS_VERSION}"
+
+# Bump this number whenever the image is updated without changing the
+# BR_FMDEPS_VERSION (this is useful for NOVA CI caching invalidation).
+ENV BR_FM_CI_IMAGE_VERSION="2"
+
+ENV DOCKER_IMAGE_VERSION=br-deps-${BR_FMDEPS_VERSION}-LLVM-${LLVM_VER}-${BR_FM_CI_IMAGE_VERSION}
+
+RUN git config --global --add safe.directory '*'
+ENV llvm_base_dir=/usr/lib/llvm/bin
+ENV LLVM_BASE_DIR=${llvm_base_dir}/
+ENV CC=${LLVM_BASE_DIR}clang
+ENV CXX=${LLVM_BASE_DIR}clang++
+# Set PATH for both interactive and scripted users.
+ENV PATH=${llvm_base_dir}:"$PATH"
+RUN echo PATH=${llvm_base_dir}:'"$PATH"' >> ~coq/.profile
+
+CMD ["/bin/bash", "--login"]
