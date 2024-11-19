@@ -26,6 +26,8 @@ trigger:
     ORIGIN_CI_PROJECT_TITLE: $CI_PROJECT_TITLE
     FM_CI_TRIGGER_KIND: $FM_CI_TRIGGER_KIND
     FM_CI_TRIM_DUNE_CACHE: $FM_CI_TRIM_DUNE_CACHE
+    FM_CI_ONLY_FULL_BUILD: $FM_CI_ONLY_FULL_BUILD
+    FM_CI_DEFAULT_SWIPL: $FM_CI_DEFAULT_SWIPL
   trigger:
     project: bedrocksystems/formal-methods/ci-backfire
     branch: main
