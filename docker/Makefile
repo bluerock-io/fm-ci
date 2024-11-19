@@ -1,5 +1,5 @@
 REGISTRY ?= registry.gitlab.com
-BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/docker-image
+BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2024-11-01
 LLVM_VERSIONS ?= 16 17 18 19
 LLVM_MAIN_VERSION ?= 18
@@ -127,13 +127,13 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 	@echo -e $(call color,$(CYAN),Downloading the artifact...)
 	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
 
-RELEASE_FROM_IMAGE_TAG := \
-	fm-$(BR_FMDEPS_VERSION)-swipl-$(SWIPL_MAIN_VERSION)-llvm-$(LLVM_MAIN_VERSION)
+RELEASE_BASE_IMAGE := \
+	$(BR_REGISTRY):fm-$(BR_FMDEPS_VERSION)-swipl-$(SWIPL_MAIN_VERSION)-llvm-$(LLVM_MAIN_VERSION)
 
 build-release: files/fm-artifact.zip
 	@echo "[DOCKER] Building fm-release"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
-	  --build-arg FROM_IMAGE_TAG=$(RELEASE_FROM_IMAGE_TAG) \
+		--build-arg BASE_IMAGE=$(RELEASE_BASE_IMAGE) \
 		-f Dockerfile-release .
 .PHONY: build-release
 

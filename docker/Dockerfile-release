@@ -1,6 +1,6 @@
-ARG FROM_IMAGE_TAG=fm
+ARG BASE_IMAGE=br:fm
 
-FROM registry.gitlab.com/bedrocksystems/docker-image:$FROM_IMAGE_TAG
+FROM $BASE_IMAGE
 
 COPY files/fm-artifact.zip /home/coq/fm-artifact.zip
 

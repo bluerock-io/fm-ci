@@ -363,7 +363,7 @@ let output_static : Out_channel.t -> unit = fun oc ->
   line ""
 
 let common_ci_image oc tag =
-  let registry = "registry.gitlab.com/bedrocksystems/docker-image" in
+  let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci" in
   Printf.fprintf oc "%s:%s" registry tag
 
 let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
