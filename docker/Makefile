@@ -41,6 +41,7 @@ files/br-fm-deps.opam: ../fm-deps/dune-project
 	$(Q)cp ../fm-deps/br-fm-deps.opam files/br-fm-deps.opam
 
 DOCKER_BUILD_TARGETS =
+DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
@@ -54,6 +55,13 @@ build-swipl.$1-llvm.$2: Dockerfile-fm-ci files/br-fm-deps.opam
 		-f $$< .
 .PHONY: build-swipl.$1-llvm.$2
 DOCKER_BUILD_TARGETS += build-swipl.$1-llvm.$2
+
+run-swipl.$1-llvm.$2: build-swipl.$1-llvm.$2
+	@echo "[DOCKER] Running fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2"
+	$$(Q)docker run -i \
+		-t $$(BR_REGISTRY):fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+.PHONY: run-swipl.$1-llvm.$2
+DOCKER_RUN_TARGETS += run-swipl.$1-llvm.$2
 
 push-swipl.$1-llvm.$2: build-swipl.$1-llvm.$2
 	@echo "[DOCKER] Pusing fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2"
@@ -83,6 +91,7 @@ push: build $(DOCKER_PUSH_TARGETS)
 
 list-targets:
 	@echo "$(DOCKER_BUILD_TARGETS)" | tr ' ' '\n' | sort -V
+	@echo "$(DOCKER_RUN_TARGETS)" | tr ' ' '\n' | sort -V
 	@echo "$(DOCKER_PUSH_TARGETS)" | tr ' ' '\n' | sort -V
 .PHONY: list-targets
 
