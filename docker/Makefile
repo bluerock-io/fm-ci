@@ -113,6 +113,49 @@ logout:
 	$(Q)docker logout $(REGISTRY)
 .PHONY: logout
 
+ARTIFACT_JOB := https://gitlab.com/api/v4/projects/59374913/jobs/artifacts
+ARTIFACT_URL := $(ARTIFACT_JOB)/trigger-default/download?job=gen-installed-artifact
+ifndef CI_JOB_TOKEN
+HEADER_DEPS := gitlab-token
+HEADER := "PRIVATE-TOKEN: $(shell cat gitlab-token)"
+else
+HEADER_DEPS :=
+HEADER := "JOB-TOKEN: $(CI_JOB_TOKEN)"
+endif
+
+files/fm-artifact.zip: $(HEADER_DEPS)
+	@echo -e $(call color,$(CYAN),Downloading the artifact...)
+	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
+
+RELEASE_FROM_IMAGE_TAG := \
+	fm-$(BR_FMDEPS_VERSION)-swipl-$(SWIPL_MAIN_VERSION)-llvm-$(LLVM_MAIN_VERSION)
+
+build-release: files/fm-artifact.zip
+	@echo "[DOCKER] Building fm-release"
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
+	  --build-arg FROM_IMAGE_TAG=$(RELEASE_FROM_IMAGE_TAG) \
+		-f Dockerfile-release .
+.PHONY: build-release
+
+run-release: build-release
+	@echo "[DOCKER] Running fm-release"
+	$(Q)docker run -i -t $(BR_REGISTRY):fm-release
+.PHONY: run-release
+
+push-release: build-release
+	@echo "[DOCKER] Pusing fm-release"
+ifeq ($(I_KNOW_WHAT_I_AM_DOING),no)
+	@echo "The command that would run would be:"
+	@echo "  docker push $(BR_REGISTRY):fm-release"
+	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
+endif
+ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
+	@echo "(Let's hope you did not mess anything up...)"
+	$(Q)docker push $(BR_REGISTRY):fm-release
+endif
+
+.PHONY: push-release
+
 clean:
 	@rm -f files/br-fm-deps.opam
 .PHONY: clean
