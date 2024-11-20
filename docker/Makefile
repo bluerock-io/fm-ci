@@ -1,5 +1,5 @@
 REGISTRY ?= registry.gitlab.com
-BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/docker-image
+BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2024-11-01
 LLVM_VERSIONS ?= 16 17 18 19
 LLVM_MAIN_VERSION ?= 18
@@ -41,33 +41,39 @@ files/br-fm-deps.opam: ../fm-deps/dune-project
 	$(Q)cp ../fm-deps/br-fm-deps.opam files/br-fm-deps.opam
 
 DOCKER_BUILD_TARGETS =
+DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-build-swipl.$1-llvm.$2: Dockerfile-fm-ci files/br-fm-deps.opam
-	@echo "[DOCKER] Building fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2"
+fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opam
+	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
-		-t $$(BR_REGISTRY):fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2 \
+		-t $$(BR_REGISTRY):$$@ \
 		--build-arg BR_FMDEPS_VERSION=$$(BR_FMDEPS_VERSION) \
 		--build-arg BR_SWIPL_VERSION=$1 \
 		--build-arg BR_LLVM_MAJ_VER=$2 \
 		-f $$< .
-.PHONY: build-swipl.$1-llvm.$2
-DOCKER_BUILD_TARGETS += build-swipl.$1-llvm.$2
+.PHONY: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+DOCKER_BUILD_TARGETS += fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
 
-push-swipl.$1-llvm.$2: build-swipl.$1-llvm.$2
-	@echo "[DOCKER] Pusing fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2"
-ifeq ($(I_KNOW_WHAT_I_AM_DOING),no)
-	@echo "The command that would run would be:"
-	@echo "  docker push $$(BR_REGISTRY):fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2"
-	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
-endif
+run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+	@echo "[DOCKER] Running $$<"
+	$$(Q)docker run -i -t $$(BR_REGISTRY):$$<
+.PHONY: run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+DOCKER_RUN_TARGETS += run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+
+push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+	@echo "[DOCKER] Pushing $$<"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
-	$$(Q)docker push $$(BR_REGISTRY):fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+	$$(Q)docker push $$(BR_REGISTRY):$$<
+else
+	@echo "The command that would run would be:"
+	@echo "  docker push $$(BR_REGISTRY):$$<"
+	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
 endif
-.PHONY: push-swipl.$1-llvm.$2
-DOCKER_PUSH_TARGETS += push-swipl.$1-llvm.$2
+.PHONY: push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+DOCKER_PUSH_TARGETS += push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
 endef
 
 $(foreach llvm,$(LLVM_VERSIONS),\
@@ -83,8 +89,34 @@ push: build $(DOCKER_PUSH_TARGETS)
 
 list-targets:
 	@echo "$(DOCKER_BUILD_TARGETS)" | tr ' ' '\n' | sort -V
+	@echo "$(DOCKER_RUN_TARGETS)" | tr ' ' '\n' | sort -V
 	@echo "$(DOCKER_PUSH_TARGETS)" | tr ' ' '\n' | sort -V
 .PHONY: list-targets
+
+DEFAULT_TAG := fm-$(BR_FMDEPS_VERSION)-swipl-$(SWIPL_MAIN_VERSION)-llvm-$(LLVM_MAIN_VERSION)
+
+tag-default: $(DEFAULT_TAG)
+	@echo "[DOCKER] Tagging $< as fm-default"
+	@docker image tag $(BR_REGISTRY):$< $(BR_REGISTRY):fm-default
+.PHONY: tag-default
+
+run-default: tag-default
+	@echo "[DOCKER] Running fm-default"
+	$(Q)docker run -i -t $(BR_REGISTRY):fm-default
+.PHONY: run-default
+
+push-default: tag-default
+	@echo "[DOCKER] Pusing tag fm-default"
+ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
+	@echo "(Let's hope you did not mess anything up...)"
+	$(Q)docker push $(BR_REGISTRY):fm-default
+else
+	@echo "The command that would run would be:"
+	@echo "  docker push $(BR_REGISTRY):fm-default"
+	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
+endif
+
+.PHONY: push-default
 
 gitlab-login:
 	@echo -n "Enter your GitLab login: "
@@ -103,6 +135,44 @@ login: gitlab-login gitlab-token
 logout:
 	$(Q)docker logout $(REGISTRY)
 .PHONY: logout
+
+ARTIFACT_JOB := https://gitlab.com/api/v4/projects/59374913/jobs/artifacts
+ARTIFACT_URL := $(ARTIFACT_JOB)/trigger-default/download?job=gen-installed-artifact
+ifndef CI_JOB_TOKEN
+HEADER_DEPS := gitlab-token
+HEADER := "PRIVATE-TOKEN: $(shell cat gitlab-token)"
+else
+HEADER_DEPS :=
+HEADER := "JOB-TOKEN: $(CI_JOB_TOKEN)"
+endif
+
+files/fm-artifact.zip: $(HEADER_DEPS)
+	@echo -e $(call color,$(CYAN),Downloading the artifact...)
+	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
+
+build-release: files/fm-artifact.zip
+	@echo "[DOCKER] Building fm-release"
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default -f Dockerfile-release .
+.PHONY: build-release
+
+run-release: build-release
+	@echo "[DOCKER] Running fm-release"
+	$(Q)docker run -i -t $(BR_REGISTRY):fm-release
+.PHONY: run-release
+
+push-release: build-release
+	@echo "[DOCKER] Pusing fm-release"
+ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
+	@echo "(Let's hope you did not mess anything up...)"
+	$(Q)docker push $(BR_REGISTRY):fm-release
+else
+	@echo "The command that would run would be:"
+	@echo "  docker push $(BR_REGISTRY):fm-release"
+	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
+endif
+
+.PHONY: push-release
 
 clean:
 	@rm -f files/br-fm-deps.opam
