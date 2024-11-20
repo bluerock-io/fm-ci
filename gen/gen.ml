@@ -736,10 +736,11 @@ let nova_job : Out_channel.t -> unit = fun oc ->
     in
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
+  let image = main_image in
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "%s:" gen_name;
-  common ~image:main_image ~dune_cache:true oc;
+  common ~image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -791,6 +792,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   line "  needs:";
   line "    - %s" gen_name;
   line "  variables:";
+  line "    UPSTREAM_IMAGE: \"%s\"" image;
   line "    UPSTREAM_CI_JOB_ID: $ARTIFACT_CI_JOB_ID";
   line "  trigger:";
   line "    project: bedrocksystems/NOVA";
