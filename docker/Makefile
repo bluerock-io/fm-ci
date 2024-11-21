@@ -179,7 +179,7 @@ endif
 .PHONY: push-release
 
 clean:
-	@rm -f files/br-fm-deps.opam
+	@rm -f files/br-fm-deps.opam files/fm-artifact.zip
 .PHONY: clean
 
 clean-all: clean
