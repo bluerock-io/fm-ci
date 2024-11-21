@@ -1,6 +1,9 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2024-11-01
+# Bump the following number when pushing new images with the same version
+# numbers. This is necessary to properly invalidate the NOVA cache.
+BR_IMAGE_VERSION ?= 1
 LLVM_VERSIONS ?= 16 17 18 19
 LLVM_MAIN_VERSION ?= 18
 SWIPL_VERSIONS ?= 9.0.4 9.1.8 9.2.7 9.3.8
@@ -50,6 +53,7 @@ fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opa
 	$$(Q)docker buildx build --pull \
 		-t $$(BR_REGISTRY):$$@ \
 		--build-arg BR_FMDEPS_VERSION=$$(BR_FMDEPS_VERSION) \
+		--build-arg BR_IMAGE_VERSION=$$(BR_IMAGE_VERSION) \
 		--build-arg BR_SWIPL_VERSION=$1 \
 		--build-arg BR_LLVM_MAJ_VER=$2 \
 		-f $$< .
@@ -140,7 +144,7 @@ ARTIFACT_JOB := https://gitlab.com/api/v4/projects/59374913/jobs/artifacts
 ARTIFACT_URL := $(ARTIFACT_JOB)/trigger-default/download?job=gen-installed-artifact
 ifndef CI_JOB_TOKEN
 HEADER_DEPS := gitlab-token
-HEADER := "PRIVATE-TOKEN: $(shell cat gitlab-token)"
+HEADER := "PRIVATE-TOKEN: $$(cat gitlab-token)"
 else
 HEADER_DEPS :=
 HEADER := "JOB-TOKEN: $(CI_JOB_TOKEN)"

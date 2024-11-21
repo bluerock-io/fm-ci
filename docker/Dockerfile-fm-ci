@@ -120,11 +120,10 @@ RUN sudo touch /usr/bin/perf
 ARG BR_FMDEPS_VERSION
 RUN test -n "${BR_FMDEPS_VERSION}"
 
-# Bump this number whenever the image is updated without changing the
-# BR_FMDEPS_VERSION (this is useful for NOVA CI caching invalidation).
-ENV BR_FM_CI_IMAGE_VERSION="2"
+ARG BR_IMAGE_VERSION
+RUN test -n "${BR_IMAGE_VERSION}"
 
-ENV DOCKER_IMAGE_VERSION=br-deps-${BR_FMDEPS_VERSION}-LLVM-${LLVM_VER}-${BR_FM_CI_IMAGE_VERSION}
+ENV DOCKER_IMAGE_VERSION="fmdeps.${BR_FMDEPS_VERSION},swipl.${BR_SWIPL_VERSION},llvm.${LLVM_VER},image.${BR_IMAGE_VERSION}"
 
 RUN git config --global --add safe.directory '*'
 ENV llvm_base_dir=/usr/lib/llvm/bin
