@@ -256,6 +256,7 @@ let _ =
     perr " - bhv path     : %s" repo.Repo.bhv_path;
     perr " - main branch  : %s" repo.Repo.main_branch;
     perr " - deps         : [%s]" deps;
+    perr " - vendored     : %b" repo.Repo.vendored;
     perr " - target branch: %s" target_branch_name;
     perr " - target hash  : %s" hashes.target_branch;
     Option.iter (perr " - branch hash  : %s") hashes.mr_branch;

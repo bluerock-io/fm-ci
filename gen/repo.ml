@@ -5,6 +5,7 @@ type t = {
   bhv_path : string;
   main_branch : string;
   deps : string list;
+  vendored : bool;
 }
 
 let repos_from_config : string -> t list = fun file ->
@@ -19,8 +20,7 @@ let repos_from_config : string -> t list = fun file ->
       | Some(line) when line.[0] = '#' -> loop (i+1) acc
       | Some(line) ->
       match String.split_on_char ' ' line with
-      | name :: bhv_path :: main_branch :: deps ->
-          let deps = String.concat "" deps in
+      | name :: bhv_path :: main_branch :: deps :: vendored :: [] ->
           let len = String.length deps in
           if deps = "" || deps.[0] <> '[' || deps.[len - 1] <> ']' then
             syntax_error "bad dependency specification";
@@ -28,7 +28,11 @@ let repos_from_config : string -> t list = fun file ->
           let deps =
             if deps = "" then [] else String.split_on_char ',' deps
           in
-          loop (i+1) ({name; bhv_path; main_branch; deps} :: acc)
+          let vendored =
+            try bool_of_string vendored with Invalid_argument _ ->
+              syntax_error "bad dependency specification"
+          in
+          loop (i+1) ({name; bhv_path; main_branch; deps; vendored} :: acc)
       | _ ->
           syntax_error "missing component"
     in
