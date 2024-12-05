@@ -184,7 +184,7 @@ let target_branch : string option =
     [hashes] record gives relevant commit hashes, where [hashes.target_branch]
     is the commit hash of [target_branch_name]. *)
 let repo_hashes : Repo.t -> string * hashes = fun repo ->
-  let Repo.{name; main_branch; _} = repo in
+  let Repo.{name; main_branch; vendored; _} = repo in
   (* If triggered from [repo], commit hash from the initial trigger. *)
   let trigger_commit_hash =
     if trigger_is_fm_ci then None else
@@ -216,6 +216,7 @@ let repo_hashes : Repo.t -> string * hashes = fun repo ->
       let target_branch = branch_hash target_branch_name in
       let mr_branch = Some(hash) in
       let merge_base =
+        if vendored then None else
         let merge_base hash = merge_base repo target_branch hash in
         Option.map merge_base mr_branch
       in
@@ -240,7 +241,10 @@ let repo_hashes : Repo.t -> string * hashes = fun repo ->
             | Some(hash) -> (target, hash)
             | None       -> (main_branch, branch_hash main_branch)
       in
-      let merge_base = Some(merge_base repo target_branch branch) in
+      let merge_base =
+        if vendored then None else
+        Some(merge_base repo target_branch branch)
+      in
       (target_branch_name, {target_branch; mr_branch; merge_base})
 
 (** Extended version of [repos] with the target branch name and hashes. *)
@@ -256,6 +260,7 @@ let _ =
     perr " - bhv path     : %s" repo.Repo.bhv_path;
     perr " - main branch  : %s" repo.Repo.main_branch;
     perr " - deps         : [%s]" deps;
+    perr " - vendored     : %b" repo.Repo.vendored;
     perr " - target branch: %s" target_branch_name;
     perr " - target hash  : %s" hashes.target_branch;
     Option.iter (perr " - branch hash  : %s") hashes.mr_branch;
