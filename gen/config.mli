@@ -1,35 +1,35 @@
 (** Configuration for versions. *)
 type versions = {
-  (** CI image version (format "YYYY-MM-DD"). *)
   image : string;
-  (** Main LLVM major version (used, e.g., in the main build job). *)
+  (** CI image version (format "YYYY-MM-DD"). *)
   main_llvm : int;
-  (** Main SWI-Prolog version (used, e.g., in the main build job). *)
+  (** Main LLVM major version (used, e.g., in the main build job). *)
   main_swipl : string;
+  (** Main SWI-Prolog version (used, e.g., in the main build job). *)
 }
 
 (** Configuration for a repository. *)
 type repo = {
-  (** Name of the repository (used as key). *)
   name : string;
-  (** BlueRock GitLab project path for the repository. *)
+  (** Name of the repository (used as key). *)
   gitlab : string;
-  (** Relative path of the clone in bhv. *)
+  (** BlueRock GitLab project path for the repository. *)
   bhv_path : string;
-  (** Name of the main branch. *)
+  (** Relative path of the clone in bhv. *)
   main_branch : string;
-  (** Names of immediate dependencies. *)
+  (** Name of the main branch. *)
   deps : string list;
-  (** Is the repository vendored? *)
+  (** Names of immediate dependencies. *)
   vendored : bool;
+  (** Is the repository vendored? *)
 }
 
 (** Configuration obtained from the configuration file. *)
 type config = {
-  (** Versions configuration. *)
   versions : versions;
-  (** List of configured repositories. *)
+  (** Versions configuration. *)
   repos : repo list;
+  (** List of configured repositories. *)
 }
 
 (** [read_config file] reads a configuration in the TOML file [file]. If there
