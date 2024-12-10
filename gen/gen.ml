@@ -7,17 +7,20 @@ let _ =
   perr "Usage: %s <TOKEN> <CONFIG_FILE> <OUTPUT_YAML_FILE>\n%!" Sys.argv.(0);
   exit 1
 
+(** Reading the configuration file. *)
+let config = Config.read_config Sys.argv.(2)
+
 (** Main version of SWI-Prolog (usable with all supported LLVM versions). *)
-let main_swipl_version = "9.2.7"
+let main_swipl_version = config.Config.main_swipl_version
 
 (** Main version of LLVM (usable with all supported SWI-Prolog versions). *)
-let main_llvm_version = 18
+let main_llvm_version = config.Config.main_llvm_version
 
 (** GitLab token. *)
 let token : string = Sys.argv.(1)
 
 (** Configuration for the repos. *)
-let repos : Repo.t list = Repo.repos_from_config Sys.argv.(2)
+let repos : Config.repo list = config.Config.repos
 
 (** Output YAML file. *)
 let yaml_file : string = Sys.argv.(3)
@@ -58,7 +61,7 @@ let trigger_is_fm_ci : bool =
 let _ =
   match trigger_is_fm_ci with true -> () | false ->
   let project_name = trigger.Info.project_name in
-  if List.for_all (fun Repo.{name; _} -> name <> project_name) repos then
+  if List.for_all (fun repo -> repo.Config.gitlab <> project_name) repos then
     panic "Repository %s not specified in the config." project_name
 
 (** Information about the originating MR, if any. *)
@@ -96,15 +99,16 @@ let main_image = ci_image_default_swipl ~llvm:main_llvm_version
     corresponding name exists. *)
 let main_branch : string -> string = fun project ->
   let repo =
-    try List.find (fun Repo.{name; _} -> name = project) repos
+    try List.find (fun repo -> repo.Config.gitlab = project) repos
     with Not_found -> panic "No repo data for %s." project
   in
-  repo.Repo.main_branch
+  repo.Config.main_branch
 
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
     thunk is returned, and it should be run to wait for the process. The clone
     that is created is put in [repos_destdir]. *)
-let lightweight_clone : Repo.t -> unit Thunk.t = fun Repo.{name; _} ->
+let lightweight_clone : Config.repo -> unit Thunk.t = fun repo ->
+  let name = repo.Config.gitlab in
   let url =
     Printf.sprintf
       "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems/%s.git"
@@ -129,11 +133,11 @@ let _ =
 (** [rev_parse repo branch] gives the commit hash of [branch] in [repo], if it
     exists. A [None] value is returned otherwise. This function assumes that a
     clone of the repo is available under [repos_destdir]. *)
-let rev_parse : Repo.t -> string -> string option = fun repo branch ->
+let rev_parse : Config.repo -> string -> string option = fun repo branch ->
   let cmd =
     Printf.sprintf
       "git -C %s/%s rev-parse --verify --quiet refs/remotes/origin/%s"
-      repos_destdir repo.Repo.name branch
+      repos_destdir repo.Config.gitlab branch
   in
   Thunk.run @@ process_out ~cmd @@ fun lines i ->
   match (i, lines) with
@@ -145,12 +149,12 @@ let rev_parse : Repo.t -> string -> string option = fun repo branch ->
     of the given hashes, [hash1] and [hash2], in repository [repo]. Note that,
     as with [rev_parse], a clone of the repo is assumed to be available (under
     the [repos_destdir] directory). *)
-let merge_base : Repo.t -> string -> string -> string =
+let merge_base : Config.repo -> string -> string -> string =
     fun repo hash1 hash2 ->
   let cmd =
     Printf.sprintf
       "git -C %s/%s merge-base %s %s"
-      repos_destdir repo.Repo.name hash1 hash2
+      repos_destdir repo.Config.gitlab hash1 hash2
   in
   Thunk.run @@ process_out ~cmd @@ fun lines i ->
   match (i, lines) with
@@ -183,12 +187,12 @@ let target_branch : string option =
     [target_branch_name] is the name for the target branch for [repo], and the
     [hashes] record gives relevant commit hashes, where [hashes.target_branch]
     is the commit hash of [target_branch_name]. *)
-let repo_hashes : Repo.t -> string * hashes = fun repo ->
-  let Repo.{name; main_branch; vendored; _} = repo in
+let repo_hashes : Config.repo -> string * hashes = fun repo ->
+  let Config.{gitlab; name; main_branch; vendored; _} = repo in
   (* If triggered from [repo], commit hash from the initial trigger. *)
   let trigger_commit_hash =
     if trigger_is_fm_ci then None else
-    if name <> trigger.Info.project_name then None else
+    if gitlab <> trigger.Info.project_name then None else
     Some(trigger.Info.commit_sha)
   in
   let branch_hash branch =
@@ -248,19 +252,20 @@ let repo_hashes : Repo.t -> string * hashes = fun repo ->
       (target_branch_name, {target_branch; mr_branch; merge_base})
 
 (** Extended version of [repos] with the target branch name and hashes. *)
-let repos_with_hashes : (Repo.t * (string * hashes)) list =
+let repos_with_hashes : (Config.repo * (string * hashes)) list =
   List.map (fun repo -> (repo, repo_hashes repo)) repos
 
 let _ =
   (* Output info: computed data for all the repos. *)
   perr "#### Data for all repositories ####";
   let pp_repo (repo, (target_branch_name, hashes)) =
-    let deps = String.concat ", " repo.Repo.deps in
-    perr "%s:" repo.Repo.name;
-    perr " - bhv path     : %s" repo.Repo.bhv_path;
-    perr " - main branch  : %s" repo.Repo.main_branch;
+    let deps = String.concat ", " repo.Config.deps in
+    perr "%s:" repo.Config.name;
+    perr " - gitlab       : %s" repo.Config.gitlab;
+    perr " - bhv path     : %s" repo.Config.bhv_path;
+    perr " - main branch  : %s" repo.Config.main_branch;
     perr " - deps         : [%s]" deps;
-    perr " - vendored     : %b" repo.Repo.vendored;
+    perr " - vendored     : %b" repo.Config.vendored;
     perr " - target branch: %s" target_branch_name;
     perr " - target hash  : %s" hashes.target_branch;
     Option.iter (perr " - branch hash  : %s") hashes.mr_branch;
@@ -269,7 +274,7 @@ let _ =
   List.iter pp_repo repos_with_hashes
 
 (** Commit hashes for the main build step. *)
-let main_build : (Repo.t * string) list =
+let main_build : (Config.repo * string) list =
   let with_main_build_hash (repo, (_, hashes)) =
     match hashes.mr_branch with
     | Some(hash) -> (repo, hash)
@@ -281,11 +286,11 @@ let _ =
   (* Output info: commit hashes for the main build. *)
   perr "#### Information for the generated config ####";
   perr "Commit hashes for the main build:";
-  let print_info (Repo.{name; _}, hash) = perr " - %s: %s" name hash in
+  let print_info (repo, hash) = perr " - %s: %s" repo.Config.name hash in
   List.iter print_info main_build
 
 (** Commit hashes for the reference build step if necessary. *)
-let ref_build : (Repo.t * string) list option =
+let ref_build : (Config.repo * string) list option =
   match mr with
   | None     -> None
   | Some(mr) ->
@@ -303,33 +308,37 @@ let _ =
   | None            -> perr "No reference build."
   | Some(ref_build) ->
   perr "Commit hashes for the reference build:";
-  let print_info (Repo.{name; _}, hash) = perr " - %s: %s" name hash in
+  let print_info (repo, hash) = perr " - %s: %s" repo.Config.name hash in
   List.iter print_info ref_build
 
 (** Repositories that need to be fully built. *)
-let repos_needing_full_build : Repo.t list =
+let repos_needing_full_build : Config.repo list =
   (* Job comes from fm-ci: everything needs a full build. *)
   if trigger_is_fm_ci then repos else
   let Info.{project_name=origin; _} = trigger in
   (* No MR: everything downstream of [origin] needs a full build. *)
-  match mr with None -> Repo.all_downstream_from ~repos [origin] | Some(_) ->
+  match mr with
+  | None    ->
+      let origin = Config.repo_from_project_name ~config origin in
+      Config.all_downstream_from ~config [origin]
+  | Some(_) ->
   (* MR: everything downstream of a repo with a branch needs a full build. *)
   let has_branch (repo, (_, hashes)) =
     match hashes.mr_branch with
     | None                                    -> None
     | Some(br) when br = hashes.target_branch -> None
-    | Some(_ )                                -> Some(repo.Repo.name)
+    | Some(_ )                                -> Some(repo)
   in
   let with_branch = List.filter_map has_branch repos_with_hashes in
-  Repo.all_downstream_from ~repos with_branch
+  Config.all_downstream_from ~config with_branch
 
-let needs_full_build : string -> bool = fun repo ->
-  List.exists (fun Repo.{name; _} -> name = repo) repos_needing_full_build
+let needs_full_build : string -> bool = fun name ->
+  List.exists (fun repo -> repo.Config.name = name) repos_needing_full_build
 
 let _ =
   (* Output info: repositories needing a full build. *)
   perr "Repositories needing a full build:";
-  let print_info Repo.{name; _} = perr " - %s" name in
+  let print_info repo = perr " - %s" repo.Config.name in
   List.iter print_info repos_needing_full_build
 
 (** Full timing mode for BHV. *)
@@ -378,7 +387,8 @@ let repo_url oc name =
 
 let checkout_commands oc config =
   let cmd fmt = Printf.fprintf oc ("    - " ^^ fmt ^^ "\n") in
-  let checkout (Repo.{bhv_path; _}, hash) =
+  let checkout (repo, hash) =
+    let bhv_path = repo.Config.bhv_path in
     cmd "git -C %s fetch --quiet origin %s" bhv_path hash;
     cmd "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
   in
@@ -423,7 +433,7 @@ let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
 let bhv_cloning : Out_channel.t -> string -> unit = fun oc destdir ->
   let cmd fmt = Printf.fprintf oc ("    - " ^^ fmt ^^ "\n") in
   let (_, hash) =
-    try List.find (fun (r, _) -> r.Repo.name = "bhv") main_build
+    try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
     with Not_found -> panic "No repo data for bhv."
   in
   cmd "git clone --depth 1 %a %s" repo_url "bhv" destdir;
@@ -444,11 +454,14 @@ let main_job : Out_channel.t -> unit = fun oc ->
        https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
        on 2024/08/06 *)
     if collapsed then
-      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|} spaces name header
+      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
+        spaces name header
     else
-      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|} spaces name header;
+      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
+        spaces name header;
     cmd ();
-    line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|} spaces name
+    line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+      spaces name
   in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
   common ~image:main_image ~dune_cache:(full_timing = `No) oc;
@@ -721,12 +734,13 @@ let main_job : Out_channel.t -> unit = fun oc ->
 
 let nova_job : Out_channel.t -> unit = fun oc ->
   let (nova, (_, hashes)) =
-    try List.find (fun (Repo.{name; _}, _) -> name = "NOVA") repos_with_hashes
+    try
+      List.find (fun (repo, _) -> repo.Config.name = "NOVA") repos_with_hashes
     with Not_found -> panic "No config found for NOVA."
   in
   let nova_branch =
     match hashes.mr_branch with
-    | None    -> nova.Repo.main_branch
+    | None    -> nova.Config.main_branch
     | Some(_) ->
     let mr = match mr with None -> assert false | Some(mr) -> mr in
     mr.Info.mr_source_branch_name
@@ -944,7 +958,8 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   checkout_commands oc main_build;
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
-  line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py --use-ci-output-format \
+  line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
+                --use-ci-output-format \
                 --proof-dirs apps/vswitch/lib/forwarding/proof/ \
                 apps/vswitch/lib/port/proof/ \
                 # apps/vswitch/lib/vswitch/proof/";
