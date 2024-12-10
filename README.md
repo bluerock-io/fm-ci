@@ -156,6 +156,10 @@ Steps for adding new FM repositories:
 In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token 
 permissions` and enable `All groups and projects`.
 
+Note that it is also necessary to update the
+[fm-workspace](https://gitlab.com/bedrocksystems/formal-methods/fm-workspace)
+repository to reflect the changes to repositories.
+
 ## Scheduled Pipelines
 
 ### Dune cache trimming
