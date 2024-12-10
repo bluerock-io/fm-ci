@@ -151,7 +151,7 @@ Steps for adding new FM repositories:
 5. Run `make clone` to check that everything works.
 6. Add the repository to `fm-ci/config.toml` (do not forget to update the
    dependencies).
-7. Add the repository to `fm-workspace`'s in `setup-fmdeps.sh` `FM_REPOS` (for external users).
+7. Add the repository to `fm-workspace`'s in `setup-fmdeps.sh` `FM_REPOS` (for external users). TODO: CI tests for this.
 
 In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token 
 permissions` and enable `All groups and projects`.
