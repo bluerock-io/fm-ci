@@ -1,8 +1,9 @@
-# Version configuration.
+# Version configuration (all mandatory).
 
-[config]
-main_llvm_version = 18
-main_swipl_version = "9.2.7"
+[versions]
+image = "2024-11-01"
+main_llvm = 18
+main_swipl = "9.2.7"
 
 # Repository configuration template:
 #

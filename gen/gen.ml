@@ -10,11 +10,14 @@ let _ =
 (** Reading the configuration file. *)
 let config = Config.read_config Sys.argv.(2)
 
+(** CI image version. *)
+let image_version = config.Config.versions.Config.image
+
 (** Main version of SWI-Prolog (usable with all supported LLVM versions). *)
-let main_swipl_version = config.Config.main_swipl_version
+let main_swipl_version = config.Config.versions.Config.main_swipl
 
 (** Main version of LLVM (usable with all supported SWI-Prolog versions). *)
-let main_llvm_version = config.Config.main_llvm_version
+let main_llvm_version = config.Config.versions.Config.main_llvm
 
 (** GitLab token. *)
 let token : string = Sys.argv.(1)
@@ -85,7 +88,7 @@ let _ =
 
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : swipl:string -> llvm:int -> string = fun ~swipl ~llvm ->
-  Printf.sprintf "fm-2024-11-01-swipl-%s-llvm-%i" swipl llvm
+  Printf.sprintf "fm-%s-swipl-%s-llvm-%i" image_version swipl llvm
 
 (** CI image with the default version of SWI-Prolog. *)
 let ci_image_default_swipl : llvm:int -> string = fun ~llvm ->

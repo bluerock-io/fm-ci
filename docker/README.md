@@ -87,10 +87,10 @@ To set up new CI images, e.g., with new FM dependencies, you need to:
  6. Run `make push`, confirm the commands look fine, and follow instructions.
  7. Run `make tag-default` to prepare the `fm-default` image (**DO NOT PUSH**).
  8. Run `make run-default` to check that the `fm-default` image is as expected.
- 9. Modify `fm-ci/gen/gen.ml` to:
-    - Use the new images (variable `ci_image`).
-    - Update the `main_swipl_version` variable according to the `Makefile`.
-    - Update the `main_llvm_version` variable according to the `Makefile`.
+ 9. Modify the `versions` section of `fm-ci/config.toml` to:
+    - Update the `image` field to contain the new image version,
+    - Update the `main_llvm` field according to the `Makefile`.
+    - Update the `main_swipl` field according to the `Makefile`.
 10. Make an `fm-ci` MR, and use the `CI::same-branch` tag if needed.
     - Set the `CI::same-branch` tag in all non-NOVA MRs.
     - If a NOVA MR is used, set the `CI-skip-proof` tag.

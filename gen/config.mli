@@ -1,3 +1,9 @@
+type versions = {
+  image : string;
+  main_llvm : int;
+  main_swipl : string;
+}
+
 type repo = {
   name : string;
   gitlab : string;
@@ -8,9 +14,8 @@ type repo = {
 }
 
 type config = {
+  versions : versions;
   repos : repo list;
-  main_llvm_version : int;
-  main_swipl_version : string;
 }
 
 val read_config : string -> config

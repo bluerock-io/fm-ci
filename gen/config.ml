@@ -1,5 +1,11 @@
 open Extra
 
+type versions = {
+  image : string;
+  main_llvm : int;
+  main_swipl : string;
+}
+
 type repo = {
   name : string;
   gitlab : string;
@@ -10,9 +16,8 @@ type repo = {
 }
 
 type config = {
+  versions : versions;
   repos : repo list;
-  main_llvm_version : int;
-  main_swipl_version : string;
 }
 
 let read_config : string -> config = fun file ->
@@ -25,53 +30,60 @@ let read_config : string -> config = fun file ->
     | exception Sys_error(msg) ->
         panic "File system error while reading %s.\n%s" file msg
   in
+  let panic fmt = panic ("File %s: " ^^ fmt ^^ ".") file in
   let versions = ref None in
   let repos = ref [] in
   let handle_section key value =
     let open Toml.Types in
     match Table.Key.to_string key with
-    | "config" ->
-        let main_llvm_version = ref None in
-        let main_swipl_version = ref None in
-        let handle_config key value =
+    | "versions" ->
+        let image = ref None in
+        let main_llvm = ref None in
+        let main_swipl = ref None in
+        let handle_version key value =
           let key = Table.Key.to_string key in
           match (key, value) with
-          | ("main_llvm_version" , TInt(i)   ) ->
-              main_llvm_version := Some(i)
-          | ("main_llvm_version" , _         ) ->
-              panic "File %s: expected integer in field [config.%s]." file key
-          | ("main_swipl_version", TString(s)) ->
-              main_swipl_version := Some(s)
-          | ("main_swipl_version", _         ) ->
-              panic "File %s: expected string in field [config.%s]." file key
+          | ("image"     , TString(s)) -> image := Some(s)
+          | ("image"     , _         ) ->
+              panic "expected string in field [versions.%s]" key
+          | ("main_llvm" , TInt(i)   ) -> main_llvm := Some(i)
+          | ("main_llvm" , _         ) ->
+              panic "expected integer in field [versions.%s]" key
+          | ("main_swipl", TString(s)) -> main_swipl := Some(s)
+          | ("main_swipl", _         ) ->
+              panic "expected string in field [versions.%s]" key
           | (_                   , _         ) ->
-              panic "File %s: unknown field key [config.%s]." file key
+              panic "unknown field key [versions.%s]" key
         in
         let table =
           match value with TTable(table) -> table | _ ->
-          panic "File %s: entry [config] is not a table." file
+          panic "entry [versions] is not a table"
         in
-        Toml.Types.Table.iter handle_config table;
-        let main_llvm_version =
-          try Option.get !main_llvm_version with Invalid_argument(_) ->
-          panic "File %s: [config.main_llvm_version] is mandatory." file
+        Toml.Types.Table.iter handle_version table;
+        let image =
+          try Option.get !image with Invalid_argument(_) ->
+          panic "[versions.image] is mandatory" file
         in
-        let main_swipl_version =
-          try Option.get !main_swipl_version with Invalid_argument(_) ->
-          panic "File %s: [config.main_swipl_version] is mandatory." file
+        let main_llvm =
+          try Option.get !main_llvm with Invalid_argument(_) ->
+          panic "[versions.main_llvm] is mandatory" file
         in
-        versions := Some(main_llvm_version, main_swipl_version)
+        let main_swipl =
+          try Option.get !main_swipl with Invalid_argument(_) ->
+          panic "[versions.main_swipl] is mandatory" file
+        in
+        versions := Some({image; main_llvm; main_swipl})
     | "repo"   ->
         let table =
           match value with TTable(table) -> table | _ ->
-          panic "File %s: entry [repo] is not a table." file
+          panic "entry [repo] is not a table"
         in
         let handle_repo key value =
           let name = Table.Key.to_string key in
           let repo = Format.sprintf "repo.%s" name in
           let table =
             match value with TTable(table) -> table | _ ->
-            panic "File %s: entry [repo.%s] is not a table." file name
+            panic "entry [repo.%s] is not a table" name
           in
           let gitlab = ref None in
           let bhv_path = ref None in
@@ -83,22 +95,22 @@ let read_config : string -> config = fun file ->
             match (key, value) with
             | ("gitlab"  , TString(s)           ) -> gitlab := Some(s)
             | ("gitlab"  , _                    ) ->
-                panic "File %s: expected string in field [%s.%s]." file repo key
+                panic "expected string in field [%s.%s]" repo key
             | ("branch"  , TString(s)           ) -> main_branch := Some(s)
             | ("branch"  , _                    ) ->
-                panic "File %s: expected string in field [%s.%s]." file repo key
+                panic "expected string in field [%s.%s]" repo key
             | ("path"    , TString(s)           ) -> bhv_path := Some(s)
             | ("path"    , _                    ) ->
-                panic "File %s: expected string in field [%s.%s]." file repo key
+                panic "expected string in field [%s.%s]" repo key
             | ("deps"    , TArray(NodeString(l))) -> deps := Some(l)
             | ("deps"    , TArray(NodeEmpty)    ) -> deps := Some([])
             | ("deps"    , _                    ) ->
-                panic "File %s: expected string list in [%s.%s]." file repo key
+                panic "expected string list in [%s.%s]" repo key
             | ("vendored", TBool(b)             ) -> vendored := Some(b)
             | ("vendored", _                    ) ->
-                panic "File %s: expected bool in field [%s.%s]." file repo key
+                panic "expected bool in field [%s.%s]" repo key
             | (_         , _                    ) ->
-                panic "File %s: unknown field key [%s.%s]." file repo key
+                panic "unknown field key [%s.%s]" repo key
           in
           Toml.Types.Table.iter handle_config table;
           let gitlab =
@@ -119,17 +131,15 @@ let read_config : string -> config = fun file ->
         in
         Toml.Types.Table.iter handle_repo table
     | key      ->
-        panic "File %s: unknown field key [%s]." file key
+        panic "unknown field key [%s]" key
   in
   Toml.Types.Table.iter handle_section table;
-  let (main_llvm_version, main_swipl_version) =
-    match !versions with
-    | Some(llvm, swipl) -> (llvm, swipl)
-    | None              ->
-    panic "File %s should include a [config] section." file
+  let versions =
+    try Option.get !versions with Invalid_argument(_) ->
+    panic "no [versions] section included"
   in
   let repos = List.rev !repos in
-  {repos; main_llvm_version; main_swipl_version}
+  {versions; repos}
 
 let repo_from_project_name : config:config -> string -> repo =
     fun ~config project_name ->
