@@ -628,7 +628,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   checkout_commands oc main_build);
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
-  line "    - dune build fmdeps/fm-ci-tools";
+  line "    - dune build fmdeps/cpp2v-core/rocq-tools";
   line "    - mv $CI_PROJECT_DIR/perf-data perf-data";
   line "    - mv $CI_PROJECT_DIR/perf-data_ref perf-data_ref";
   line "    - cp perf-data/perf_summary.csv \
