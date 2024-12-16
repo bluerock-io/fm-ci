@@ -800,7 +800,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   line "    - mkdir $CI_PROJECT_DIR/fm-install";
   line "    - dune install --prefix=$CI_PROJECT_DIR/fm-install \
                 --display=quiet";
-  line "    - find $CI_PROJECT_DIR/fm-install -name '*.v' | while read i; do > $i; done";
+  line "    - find $CI_PROJECT_DIR/fm-install -name '*.v' -o -name '*.ml' | while read i; do > $i; done";
   line "  artifacts:";
   line "    when: always";
   line "    expose_as: \"installed fmdeps\"";
