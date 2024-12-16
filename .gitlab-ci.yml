@@ -35,7 +35,7 @@ trigger:
     branch: main
     strategy: depend
 
-docker-relase:
+docker-release:
   image: docker:27.3.1
   services:
     - docker:27.3.1-dind
