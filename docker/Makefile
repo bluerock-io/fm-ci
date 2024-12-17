@@ -154,10 +154,19 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 	@echo -e $(call color,$(CYAN),Downloading the artifact...)
 	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
 
-build-release: files/fm-artifact.zip
+build-release-dev: files/fm-artifact.zip
 	@echo "[DOCKER] Building fm-release"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default -f Dockerfile-release .
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default -f Dockerfile-release-dev .
+.PHONY: build-release-dev
+
+build-release:
+	@echo "[DOCKER] Building fm-release-opt"
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default \
+		--build-arg HEADER=$(HEADER) \
+		--build-arg ARTIFACT_URL=$(ARTIFACT_URL) \
+		-f Dockerfile-release-opt .
 .PHONY: build-release
 
 run-release: build-release

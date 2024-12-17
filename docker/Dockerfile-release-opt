@@ -1,0 +1,19 @@
+ARG BASE_IMAGE=br:fm
+
+FROM $BASE_IMAGE
+
+ENV LOCAL_PREFIX=/home/coq/.local
+
+ARG HEADER
+ARG ARTIFACT_URL
+
+RUN curl --show-error --location --output fm-artifact.zip --header "${HEADER}" ${ARTIFACT_URL} \
+  && unzip -q -d fm-artifact fm-artifact.zip \
+  && find fm-artifact/fm-install -name dune-package \
+    | xargs sed -i "s|/builds/bedrocksystems/formal-methods/fm-ci/fm-install/|$LOCAL_PREFIX/|"  \
+  && rsync -r fm-artifact/fm-install/ .local/ \
+  && rm -rf swipl bin fm-artifact fm-artifact.zip
+
+ENV OCAMLPATH=$LOCAL_PREFIX/lib
+ENV COQ_LIB=$OCAMLPATH/coq
+ENV COQPATH=$COQ_LIB/user-contrib
