@@ -17,3 +17,5 @@ RUN curl --show-error --location --output fm-artifact.zip --header "${HEADER}" $
 ENV OCAMLPATH=$LOCAL_PREFIX/lib
 ENV COQ_LIB=$OCAMLPATH/coq
 ENV COQPATH=$COQ_LIB/user-contrib
+
+COPY files/LICENSE /home/coq/LICENSE
