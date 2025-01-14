@@ -15,6 +15,7 @@ make login
 ```
 If it is the first time you log in, you will be prompted for your GitLab user
 name, as well as an API token (that you can generate from the GitLab web UI).
+Using scopes `api, read_api, read_registry, write_registry` is sufficient.
 
 You can run `make logout` to log out, and `make clean-all` to delete your user
 name and token from the file system (this is useful if you made a mistake, or
