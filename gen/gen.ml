@@ -488,7 +488,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - dune cache trim --size=64GB";
   end;
   line "    # Increase the stack size for large files.";
-  line "    - ulimit -S -s 16384";
+  line "    - ulimit -S -s 32768";
   line "    # Install the python deps.";
   sect "    " "Install dependencies" (fun () ->
   line "    - pip3 install -r python_requirements.txt");
