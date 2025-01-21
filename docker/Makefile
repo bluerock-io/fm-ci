@@ -51,6 +51,7 @@ define image-target
 fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opam
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
+		--platform linux/amd64 \
 		-t $$(BR_REGISTRY):$$@ \
 		--build-arg BR_FMDEPS_VERSION=$$(BR_FMDEPS_VERSION) \
 		--build-arg BR_IMAGE_VERSION=$$(BR_IMAGE_VERSION) \
