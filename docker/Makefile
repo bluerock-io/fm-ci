@@ -3,7 +3,7 @@ BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2024-11-01
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
-BR_IMAGE_VERSION ?= 1
+BR_IMAGE_VERSION ?= 2
 LLVM_VERSIONS ?= 16 17 18 19
 LLVM_MAIN_VERSION ?= 18
 SWIPL_VERSIONS ?= 9.0.4 9.1.8 9.2.7 9.3.8
