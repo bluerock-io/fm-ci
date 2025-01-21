@@ -1,7 +1,7 @@
 # Version configuration (all mandatory).
 
 [versions]
-image = "2024-11-01"
+image = "2025-01-21"
 main_llvm = 18
 main_swipl = "9.2.7"
 
