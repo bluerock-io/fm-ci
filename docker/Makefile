@@ -1,6 +1,6 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
-BR_FMDEPS_VERSION ?= 2024-11-01
+BR_FMDEPS_VERSION ?= 2025-01-21
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -51,6 +51,7 @@ define image-target
 fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opam
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
+		--platform linux/amd64 \
 		-t $$(BR_REGISTRY):$$@ \
 		--build-arg BR_FMDEPS_VERSION=$$(BR_FMDEPS_VERSION) \
 		--build-arg BR_IMAGE_VERSION=$$(BR_IMAGE_VERSION) \
@@ -156,14 +157,16 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 
 build-release-dev: files/fm-artifact.zip
 	@echo "[DOCKER] Building fm-release"
-	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default -f Dockerfile-release-dev .
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release-dev \
+		--platform linux/amd64 \
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) -f Dockerfile-release-dev .
 .PHONY: build-release-dev
 
 build-release:
 	@echo "[DOCKER] Building fm-release-opt"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default \
+		--platform linux/amd64 \
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
 		--build-arg HEADER=$(HEADER) \
 		--build-arg ARTIFACT_URL=$(ARTIFACT_URL) \
 		-f Dockerfile-release-opt .

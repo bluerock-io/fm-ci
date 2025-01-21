@@ -75,7 +75,6 @@ depends: [
   "memtrace" {= "0.2.3"}
   "zarith" {= "1.14"}
   "zarith_stubs_js" {= "v0.16.1"}
-  "lablgtk3-sourceview3" {= "3.1.5"}
 ]
 build: [
   ["dune" "subst"] {dev}
