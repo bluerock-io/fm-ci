@@ -157,7 +157,7 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 
 build-release-dev: files/fm-artifact.zip
 	@echo "[DOCKER] Building fm-release"
-	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release-dev \
 		--platform linux/amd64 \
 		--build-arg BASE_IMAGE=$(BR_REGISTRY):fm-default -f Dockerfile-release-dev .
 .PHONY: build-release-dev
