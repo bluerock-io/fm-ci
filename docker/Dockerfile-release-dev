@@ -2,15 +2,15 @@ ARG BASE_IMAGE=br:fm
 
 FROM $BASE_IMAGE
 
-COPY files/fm-artifact.zip /home/coq/fm-artifact.zip
-
 ENV LOCAL_PREFIX=/home/coq/.local
 
-RUN unzip -q -d fm-artifact fm-artifact.zip \
+RUN \
+  --mount=type=bind,target=/home/coq/fm-artifact.zip,source=files/fm-artifact.zip \
+  unzip -q -d fm-artifact fm-artifact.zip \
   && find fm-artifact/fm-install -name dune-package \
     | xargs sed -i "s|/builds/bedrocksystems/formal-methods/fm-ci/fm-install/|$LOCAL_PREFIX/|"  \
   && rsync -r fm-artifact/fm-install/ .local/ \
-  && rm -rf swipl bin fm-artifact fm-artifact.zip
+  && rm -rf swipl bin fm-artifact
 
 ENV OCAMLPATH=$LOCAL_PREFIX/lib
 ENV COQ_LIB=$OCAMLPATH/coq
