@@ -109,8 +109,6 @@ The latter should in principle not be used directly, since we have a scheduled
 job that builds and publishes the image daily. It is however useful to build
 and run the release image locally when working on improvements and debugging.
 
-Replace `build-release` with `build-release-dev` during local development: this caches the artifact locally, but produces a bigger image.
-
 ## Packaging the Image as a Tarball
 
 To package the image:
