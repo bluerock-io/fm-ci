@@ -180,6 +180,18 @@ endif
 
 .PHONY: push-release
 
+PV = $(if $(shell which pv),pv,cat)
+
+fm-release.tar.gz: build-release
+	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > fm-release.tar.gz
+
+pack-release: fm-release.tar.gz
+.PHONY: pack-release
+
+unpack-release:
+	$(PV) fm-release.tar.gz | docker load
+.PHONY: unpack-release
+
 clean:
 	@rm -f files/br-fm-deps.opam files/fm-artifact.zip
 .PHONY: clean
