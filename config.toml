@@ -32,6 +32,11 @@ branch = "br-master"
 deps = ["fm-ci"]
 vendored = true
 
+[repo.stdlib]
+branch = "br-master"
+deps = ["fm-ci", "coq"]
+vendored = true
+
 [repo.stdpp]
 branch = "br-master"
 deps = ["fm-ci", "coq"]
