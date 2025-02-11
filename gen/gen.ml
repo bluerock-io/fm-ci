@@ -388,13 +388,27 @@ let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
 let repo_url oc name =
   Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
 
-let checkout_commands oc config =
-  let cmd fmt = Printf.fprintf oc ("    - " ^^ fmt ^^ "\n") in
+
+type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
+
+let init_command indent oc _ (sect : sect) =
+  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  sect indent "Initialize bhv" (fun () ->
+  cmd  indent "- time make -j ${NJOBS} init")
+
+let checkout_commands indent oc line (sect : sect) config =
+  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   let checkout (repo, hash) =
     let bhv_path = repo.Config.bhv_path in
-    cmd "git -C %s fetch --quiet origin %s" bhv_path hash;
-    cmd "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
+    cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
+    cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
   in
+  (* We must checkout bhv first to make sure we can run init so that the
+     directories of all other repos are available. *)
+  let (bhv, config) = List.partition (fun (repo, _) -> String.equal repo.Config.name "bhv") config in
+  let bhv = match bhv with [bhv] -> bhv | _ -> assert false in
+  checkout bhv;
+  init_command indent oc line sect;
   List.iter checkout config
 
 let artifacts_url =
@@ -433,39 +447,43 @@ let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
   line "      - scheduler_failure";
   line "      - stale_schedule"
 
-let bhv_cloning : Out_channel.t -> string -> unit = fun oc destdir ->
-  let cmd fmt = Printf.fprintf oc ("    - " ^^ fmt ^^ "\n") in
+let bhv_cloning : string -> Out_channel.t -> 'a -> 'b -> string -> unit = fun indent oc _ _ destdir ->
+  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   let (_, hash) =
     try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
     with Not_found -> panic "No repo data for bhv."
   in
-  cmd "git clone --depth 1 %a %s" repo_url "bhv" destdir;
-  cmd "git -C %s fetch --quiet origin %s" destdir hash;
-  cmd "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
+  cmd indent "git clone --depth 1 %a %s" repo_url "bhv" destdir;
+  cmd indent "git -C %s fetch --quiet origin %s" destdir hash;
+  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
 
+(* line1 and line2 will always be the same argument but OCaml's type system is
+   not strong enough to allow using the same variable here because line is
+   applied to different formats. *)
+let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_channel, unit) format -> 'b) : sect =
+  let fresh_name =
+    let counter = ref 0 in
+    fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
+  in
+  fun spaces header ?(collapsed=true) cmd ->
+  let name = fresh_name () in
+  (* magic strings taken from
+      https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
+      on 2024/08/06 *)
+  if collapsed then
+    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
+      spaces name header
+  else
+    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
+      spaces name header;
+  cmd ();
+  line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+    spaces name
 
 let main_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect =
-    let fresh_name =
-      let counter = ref 0 in
-      fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
-    in
-    fun spaces header ?(collapsed=true) cmd ->
-    let name = fresh_name () in
-    (* magic strings taken from
-       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
-       on 2024/08/06 *)
-    if collapsed then
-      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
-        spaces name header
-    else
-      line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
-        spaces name header;
-    cmd ();
-    line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
-      spaces name
-  in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "full-build%s:" (if ref_build = None then "" else "-compare");
   common ~image:main_image ~dune_cache:(full_timing = `No) oc;
   line "  script:";
@@ -473,7 +491,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   sect "    " "Environment" (fun () ->
   line "    - env");
   line "    # Initialize a bhv checkout.";
-  bhv_cloning oc build_dir;
+  cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   sect "    " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
@@ -495,7 +513,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
   sect "    " "Check out main branches" (fun () ->
-  checkout_commands oc main_build);
+  cmd  "    " checkout_commands main_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
@@ -596,7 +614,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out reference branches" (fun () ->
-  checkout_commands oc ref_build);
+  cmd  "    " checkout_commands ref_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # clean thoroughly in case the main branch introduced new vendored repos";
   line "    - git clean -ffxd";
@@ -644,7 +662,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out main branches (again)" (fun () ->
-  checkout_commands oc main_build);
+  cmd  "    " checkout_commands main_build);
   sect "    " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
@@ -765,6 +783,8 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   in
   let image = main_image in
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "";
   line "%s:" gen_name;
   common ~image ~dune_cache:true oc;
@@ -777,11 +797,11 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   (* We only want fmdeps, so clone everything in a temporary directory. *)
   line "    # Initialize a bhv checkout.";
   let clone_dir = "/tmp/clone-dir" in
-  bhv_cloning oc clone_dir;
+  cmd  "    " bhv_cloning clone_dir;
   line "    - cd %s" clone_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  checkout_commands oc main_build;
+  cmd  "    " checkout_commands main_build;
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
                 > $CI_PROJECT_DIR/gitshas.txt";
@@ -829,17 +849,19 @@ let nova_job : Out_channel.t -> unit = fun oc ->
 
 let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "";
   line "cpp2v-llvm-%i:" llvm;
   common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  bhv_cloning oc build_dir;
+  cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  checkout_commands oc main_build;
+  cmd  "    " checkout_commands main_build;
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -855,17 +877,19 @@ let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
 
 let cpp2v_core_public_job : Out_channel.t -> int -> unit = fun oc llvm ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "";
   line "cpp2v-public-llvm-%i:" llvm;
   common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  bhv_cloning oc build_dir;
+  cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  checkout_commands oc main_build;
+  cmd  "    " checkout_commands main_build;
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -916,17 +940,19 @@ let cpp2v_core_pages_publish : Out_channel.t -> unit = fun oc ->
 
 let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "";
   line "cpp2v-docs-gen:";
   common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  bhv_cloning oc build_dir;
+  cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  checkout_commands oc main_build;
+  cmd  "    " checkout_commands main_build;
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -955,16 +981,18 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
    2) produce a code quality report that is consumeable by gitlab. *)
 let proof_tidy : Out_channel.t -> unit = fun oc ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
   line "proof-tidy:";
   common ~image:main_image ~dune_cache:true oc;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
-  bhv_cloning oc build_dir;
+  cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  checkout_commands oc main_build;
+  cmd  "    " checkout_commands main_build;
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
   line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
