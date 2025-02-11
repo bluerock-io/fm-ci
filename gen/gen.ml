@@ -598,6 +598,9 @@ let main_job : Out_channel.t -> unit = fun oc ->
   sect "    " "Check out reference branches" (fun () ->
   checkout_commands oc ref_build);
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
+  line "    # clean thoroughly in case the main branch introduced new vendored repos";
+  line "    - git clean -ffxd";
+  line "    - make -sj ${NJOBS} gitclean > /dev/null";
   line "    # ASTs";
   sect "    " "Build reference ASTs" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS} @ast");
