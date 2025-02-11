@@ -645,6 +645,8 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out main branches (again)" (fun () ->
   checkout_commands oc main_build);
+  sect "    " "Initialize bhv" (fun () ->
+  line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
