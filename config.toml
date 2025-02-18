@@ -85,6 +85,13 @@ deps = [
   "coq-equations", "coq-ext-lib"
 ]
 
+[repo.fm-docs]
+branch = "master"
+deps = [
+  "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
+  "coq-equations", "coq-ext-lib", "cpp2v"
+]
+
 [repo.NOVA]
 gitlab = "NOVA"
 path = "./NOVA"

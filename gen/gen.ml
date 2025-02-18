@@ -533,7 +533,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   end else begin
   line "    - ((dune build -j${NJOBS} \
                 @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output) \
+                  _build/install/default/bin/filter-dune-output && ./fmdeps/fm-docs/ci-build.sh) \
                 || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
