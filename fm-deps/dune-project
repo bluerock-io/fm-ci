@@ -32,7 +32,7 @@
   ; OCaml libraries.
   (conf-linux-libc-dev (= :os "linux"))
   (memprof-limits (= 0.2.1))
-  (sel (= 0.4.0))
+  (sel (= 0.6.0))
   (uri (= 4.4.0))
   (stringext (= 1.6.0))
   (sedlex (= 3.2))
