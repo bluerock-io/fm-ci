@@ -17,3 +17,4 @@ ENV COQ_LIB=$OCAMLPATH/coq
 ENV COQPATH=$COQ_LIB/user-contrib
 
 COPY files/LICENSE /home/coq/LICENSE
+COPY files/dune-config /home/coq/.config/dune/config
