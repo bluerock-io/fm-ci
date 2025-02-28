@@ -13,7 +13,7 @@ RUN \
   && rm -rf swipl bin fm-artifact
 
 ENV OCAMLPATH=$LOCAL_PREFIX/lib
-ENV COQ_LIB=$OCAMLPATH/coq
-ENV COQPATH=$COQ_LIB/user-contrib
+ENV ROCQ_LIB=$OCAMLPATH/coq
+ENV ROCQPATH=$ROCQ_LIB/user-contrib
 
 COPY files/LICENSE /home/coq/LICENSE
