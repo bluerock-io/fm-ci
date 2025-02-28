@@ -1,4 +1,5 @@
 files/br-fm-deps.opam
+files/dune-project
 files/fm-artifact.zip
 gitlab-login
 gitlab-token

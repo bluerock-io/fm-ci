@@ -25,7 +25,7 @@
    (and
     (or (= :os "linux") (= :os "macos"))
     (= :arch "x86_64")))
-  (dune (= 3.16.0))
+  (dune (= 3.17.2))
   (odoc (= 2.4.2))
   (ocp-indent (= 1.8.1))
   merlin
@@ -42,7 +42,7 @@
   (lwt (= 5.7.0))
   (base (= v0.16.3))
   (ocaml-syntax-shims (= 1.0.0))
-  (dune-build-info (= 3.16.0))
+  (dune-build-info (= 3.17.2))
   (angstrom (= 0.16.1))
   (bigstringaf (= 0.10.0))
   (gen (= 1.1))
