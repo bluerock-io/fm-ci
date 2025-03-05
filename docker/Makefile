@@ -39,19 +39,19 @@ all:
 	@echo -e $(call color,$(CYAN),See README.md for documentation.)
 .PHONY: all
 
-files/dune-project: ../fm-deps/dune-project
-	$(Q)cp ../fm-deps/dune-project files/dune-project
+files/_dune-project: ../fm-deps/dune-project
+	$(Q)cp ../fm-deps/dune-project $@
 
-files/br-fm-deps.opam: ../fm-deps/dune-project
+files/_br-fm-deps.opam: ../fm-deps/dune-project
 	$(Q)dune b --no-print-directory --display=quiet ../fm-deps/br-fm-deps.opam
-	$(Q)cp ../fm-deps/br-fm-deps.opam files/br-fm-deps.opam
+	$(Q)cp ../fm-deps/br-fm-deps.opam $@
 
 DOCKER_BUILD_TARGETS =
 DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opam files/dune-project
+fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
 		--platform linux/amd64 \
@@ -196,7 +196,7 @@ unpack-release:
 .PHONY: unpack-release
 
 clean:
-	@rm -f files/br-fm-deps.opam files/fm-artifact.zip
+	@rm -f files/_br-fm-deps.opam files/_dune-project files/fm-artifact.zip
 .PHONY: clean
 
 clean-all: clean
