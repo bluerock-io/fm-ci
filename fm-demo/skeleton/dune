@@ -1,0 +1,15 @@
+; Copyright © 2022-2024 BlueRock Security, Inc. (“BlueRock”)
+;
+; This file is CONFIDENTIAL AND PROPRIETARY to BlueRock. All rights reserved.
+;
+; Use of this file is only permitted subject to a separate written license agreement with BlueRock.
+
+(env
+ (_
+  (flags :standard -warn-error +A -w +A-4-29-40..45-48-58..59-63..65-68-70)
+  (ocamlopt_flags :standard -O3 -unbox-closures)
+  (coq
+   (flags
+    (:standard
+      %{read-lines:flags/coqc}
+)))))
