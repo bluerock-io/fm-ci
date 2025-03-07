@@ -185,14 +185,22 @@ endif
 
 PV = $(if $(shell which pv),pv,cat)
 
-fm-release.tar.gz: build-release
-	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > fm-release.tar.gz
+FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+FM_RELEASE_TARBALL_NAME = fm-release-$(FM_RELEASE_FULL_VERSION)
 
-pack-release: fm-release.tar.gz
+ver-release:
+	@echo $(FM_RELEASE_FULL_VERSION)
+name-release:
+	@echo $(FM_RELEASE_TARBALL_NAME)
+
+$(FM_RELEASE_TARBALL_NAME).tar.gz: build-release
+	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > "$@"
+
+pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz
 .PHONY: pack-release
 
 unpack-release:
-	$(PV) fm-release.tar.gz | docker load
+	$(PV) $(FM_RELEASE_TARBALL_NAME).tar.gz | docker load
 .PHONY: unpack-release
 
 clean:
