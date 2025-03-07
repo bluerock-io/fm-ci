@@ -44,7 +44,8 @@ RUN set -x \
   && echo "/home/coq/.local/bin" \
   |  bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)"
 
-COPY files/br-fm-deps.opam /tmp/files/br-fm-deps.opam
+COPY files/_br-fm-deps.opam /tmp/files/br-fm-deps.opam
+COPY files/_dune-project /tmp/files/dune-project
 COPY files/opam-clean /tmp/files/opam-clean
 
 RUN set -x \
@@ -113,6 +114,10 @@ RUN sudo ln -s ld.lld-${LLVM_VER} /usr/bin/ld.lld
 # Ensure a /usr/bin/perf binary exists; we bind-mount over this the correct
 # version from the host.
 RUN sudo touch /usr/bin/perf
+
+### Install uv
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.4 /uv /uvx /bin/
 
 ### Environment setup ########################################################
 

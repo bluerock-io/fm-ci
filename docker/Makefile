@@ -1,6 +1,6 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
-BR_FMDEPS_VERSION ?= 2025-02-25
+BR_FMDEPS_VERSION ?= 2025-02-26
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -39,16 +39,19 @@ all:
 	@echo -e $(call color,$(CYAN),See README.md for documentation.)
 .PHONY: all
 
-files/br-fm-deps.opam: ../fm-deps/dune-project
+files/_dune-project: ../fm-deps/dune-project
+	$(Q)cp ../fm-deps/dune-project $@
+
+files/_br-fm-deps.opam: ../fm-deps/dune-project
 	$(Q)dune b --no-print-directory --display=quiet ../fm-deps/br-fm-deps.opam
-	$(Q)cp ../fm-deps/br-fm-deps.opam files/br-fm-deps.opam
+	$(Q)cp ../fm-deps/br-fm-deps.opam $@
 
 DOCKER_BUILD_TARGETS =
 DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/br-fm-deps.opam
+fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
 		--platform linux/amd64 \
@@ -193,7 +196,7 @@ unpack-release:
 .PHONY: unpack-release
 
 clean:
-	@rm -f files/br-fm-deps.opam files/fm-artifact.zip
+	@rm -f files/_br-fm-deps.opam files/_dune-project files/fm-artifact.zip
 .PHONY: clean
 
 clean-all: clean

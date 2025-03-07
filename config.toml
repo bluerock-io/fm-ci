@@ -1,7 +1,7 @@
 # Version configuration (all mandatory).
 
 [versions]
-image = "2025-02-25"
+image = "2025-02-26"
 main_llvm = 18
 main_swipl = "9.2.7"
 
@@ -30,6 +30,11 @@ main_swipl = "9.2.7"
 [repo.coq]
 branch = "br-master"
 deps = ["fm-ci"]
+vendored = true
+
+[repo.stdlib]
+branch = "br-master"
+deps = ["fm-ci", "coq"]
 vendored = true
 
 [repo.stdpp]
