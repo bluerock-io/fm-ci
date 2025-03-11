@@ -396,20 +396,22 @@ let init_command indent oc _ (sect : sect) =
   sect indent "Initialize bhv" (fun () ->
   cmd  indent "- time make -j ${NJOBS} init")
 
-let checkout_commands indent oc line (sect : sect) config =
+let is_bhv (repo, _) = String.equal repo.Config.name "bhv"
+
+let checkout_command indent oc _ (_ : sect) (repo, hash)  =
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
-  let checkout (repo, hash) =
-    let bhv_path = repo.Config.bhv_path in
-    cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
-    cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
-  in
+  let bhv_path = repo.Config.bhv_path in
+  cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
+  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
+
+let checkout_commands indent oc line (sect : sect) config =
   (* We must checkout bhv first to make sure we can run init so that the
      directories of all other repos are available. *)
-  let (bhv, config) = List.partition (fun (repo, _) -> String.equal repo.Config.name "bhv") config in
+  let (bhv, config) = List.partition is_bhv config in
   let bhv = match bhv with [bhv] -> bhv | _ -> assert false in
-  checkout bhv;
+  checkout_command indent oc line sect bhv;
   init_command indent oc line sect;
-  List.iter checkout config
+  List.iter (checkout_command indent oc line sect) config
 
 let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
@@ -613,12 +615,14 @@ let main_job : Out_channel.t -> unit = fun oc ->
   (* Checkout the commit hashes for the reference build, and build. *)
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out reference branches" (fun () ->
-  cmd  "    " checkout_commands ref_build);
-  line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
+  sect "    " "Check out reference bhv branch for cleaning" (fun () ->
+  cmd  "    " checkout_command (List.find is_bhv ref_build));
   line "    # clean thoroughly in case the main branch introduced new vendored repos";
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
+  sect "    " "Check out all reference branches" (fun () ->
+  cmd  "    " checkout_commands ref_build);
+  line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
   sect "    " "Build reference ASTs" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS} @ast");
