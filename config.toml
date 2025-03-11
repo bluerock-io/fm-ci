@@ -91,7 +91,7 @@ deps = [
 ]
 
 [repo.fm-docs]
-branch = "master"
+branch = "main"
 deps = [
   "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
   "coq-equations", "coq-ext-lib", "cpp2v"
