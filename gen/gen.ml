@@ -1020,8 +1020,10 @@ let output_config : Out_channel.t -> unit = fun oc ->
   match trigger.only_full_build with true -> () | false ->
   (* Proof tidy job. *)
   proof_tidy oc;
-  (* Triggered NOVA build. *)
-  if needs_full_build "NOVA" then nova_job oc;
+  (* Triggered NOVA build.
+     NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+     trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+  if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job oc;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
     cpp2v_core_llvm_job oc 16;
