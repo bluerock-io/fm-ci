@@ -114,7 +114,7 @@ run-default: tag-default
 .PHONY: run-default
 
 push-default: tag-default
-	@echo "[DOCKER] Pusing tag fm-default"
+	@echo "[DOCKER] Pushing tag fm-default"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):fm-default
@@ -171,7 +171,7 @@ run-release: build-release
 .PHONY: run-release
 
 push-release: build-release
-	@echo "[DOCKER] Pusing fm-release"
+	@echo "[DOCKER] Pushing fm-release"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):fm-release
