@@ -158,7 +158,10 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 	@echo -e $(call color,$(CYAN),Downloading the artifact...)
 	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
 
-build-release: files/fm-artifact.zip
+files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
+	cp $< $@
+
+build-release: files/fm-artifact.zip files/fmdocs_python_deps.txt
 	@echo "[DOCKER] Building fm-release"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
 		--platform linux/amd64 \
