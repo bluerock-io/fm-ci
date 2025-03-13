@@ -186,7 +186,7 @@ endif
 PV = $(if $(shell which pv),pv,cat)
 
 FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
-FM_RELEASE_TARBALL_NAME = fm-release-$(FM_RELEASE_FULL_VERSION)
+FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
 
 ver-release:
 	@echo $(FM_RELEASE_FULL_VERSION)
