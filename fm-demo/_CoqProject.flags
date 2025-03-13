@@ -12,6 +12,3 @@
 -arg -w -arg +deprecated-tacopt-without-locality
 -arg -w -arg +future-coercion-class-field
 -arg -w -arg +unknown-option
-
--Q demos/ bedrock_auto.tests
--Q _build/default/demos/ bedrock_auto.tests

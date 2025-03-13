@@ -51,5 +51,9 @@ rsync -avc --delete --delete-excluded --exclude .git ${BHV}/fmdeps/fm-docs/ fm-d
 ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-demo/proof/
 ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-stdlib/theories/
 
+cat ${BHV}/fmdeps/fm-ci/fm-demo/_CoqProject.flags > _CoqProject
+echo >> _CoqProject
+${BHV}/support/gather-coq-paths.py `find . -name dune` >> _CoqProject
+
 cd ${target_parent}
 time tar czf ${target_tarball} ${target_dir_name}
