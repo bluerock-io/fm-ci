@@ -874,6 +874,14 @@ let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
   (* Build cpp2v-core including tests. *)
   line "    # Build.";
   line "    - make -C fmdeps/cpp2v ast-prepare";
+  (* Make sure the rocq binary is available.
+     This is necessary to ensure that our wrappers are functional.
+     We cannot tell dune about the dependency of coqc_perf on rocq
+     because the package that provides the rocq binary also installs
+     a binary called coqc, which is the name under which coqc_perf 
+     will be used.
+  *)
+  line "    - dune build @fmdeps/coq/install";
   line "    - dune build _build/install/default/bin/filter-dune-output";
   line "    - dune build -j ${NJOBS} \
                 fmdeps/cpp2v-core @fmdeps/cpp2v-core/runtest 2>&1 | \
