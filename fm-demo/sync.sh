@@ -32,7 +32,7 @@ mkdir -p ${target}
 
 # Sync our skeleton, and preserve demos
 # Getting ${exclusions} correct is optional but reduces noise/extra work when rerunning the script
-exclusions="--exclude rocq-bluerock-cpp-demo --exclude rocq-bluerock-cpp-stdlib --exclude flags --exclude fm-docs --exclude docker --exclude ${docker_name}"
+exclusions="--exclude rocq-bluerock-cpp-demo --exclude rocq-bluerock-cpp-stdlib --exclude flags --exclude fm-docs --exclude docker --exclude ${docker_name} --exclude _build"
 rsync -avc --delete ${exclusions} $PWD/skeleton/ ${target}/ "$@"
 
 rsync -av ${docker_path}/${docker_name} ${target}/ "$@"
@@ -54,6 +54,15 @@ ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-stdlib/theories/
 cat ${BHV}/fmdeps/fm-ci/fm-demo/_CoqProject.flags > _CoqProject
 echo >> _CoqProject
 ${BHV}/support/gather-coq-paths.py `find . -name dune` >> _CoqProject
+
+# Tag for docker image
+img_name=registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-release
+# Path inside container -- chosen to match VsCode one
+demo_mount_point=/workspaces/${target_dir_name}
+docker run -v ${target}:${demo_mount_point} --rm -it ${img_name} bash -l -c \
+       "cd ${demo_mount_point}; dune build; cd fm-docs; ./core-build.sh"
+# Copy fm-docs output back to source, so we won't erase it at next pass.
+rsync -avc fm-docs/ ${BHV}/fmdeps/fm-docs/ "$@"
 
 cd ${target_parent}
 time tar czf ${target_tarball} ${target_dir_name}

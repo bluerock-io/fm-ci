@@ -8,6 +8,7 @@ The Docker image includes a binary release of the BlueRock FM toolchain. It is p
 ## Instructions
 - Have a working Docker and VsCode installation (tested with VsCode 1.97.2).
 - Download and unpack `bluerock-fm-demo-$version.tar.gz` (where `$version` is currently `2025-02-25-1`)
+- You will find docs under `fm-docs/sphinx/_build/html/index.html`.
 - Download and "load" the `fm-release` image --- see instructions below.
 
 ### Loading the Docker image
@@ -38,7 +39,7 @@ The folders with the demo code are shared with the host computer and should be
 persisted reliably, while the rest will disappear easily on upgrades.
 **Warning**: Do _not_ do important work inside this demo without backups!
 
-You will need to build the demos before you can step through the demos reliably.
+You might need to (re)build the demos before you can step through the demos reliably.
 Open the VsCode terminal and run
 
 ```
@@ -51,11 +52,11 @@ Then, start walking through demos, for instance from
 `rocq-bluerock-cpp-demo/proof/basic/main_cpp_proof.v`, the proof for
 `rocq-bluerock-cpp-demo/proof/basic/main.cpp`.
 
-To step through `fm-docs` examples, you will also need to build `fm-docs` via the following command in the same prompt.
+To step through `fm-docs` examples, you might also need to (re)build `fm-docs` via the following command in the same prompt.
 ```
 cd fm-docs; pip3 install -r python_requirements.txt; ./core-build.sh
 ```
 
-You be able to access the docs under `fm-docs/sphinx/_build/html/index.html`
+You will be able to access the docs under `fm-docs/sphinx/_build/html/index.html`.
 
 **Warning**: updating the VsCoq extension is not supported.
