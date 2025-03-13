@@ -161,30 +161,45 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
-build-release: files/fm-artifact.zip files/fmdocs_python_deps.txt
-	@echo "[DOCKER] Building fm-release"
-	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
+RELEASE_TAG := fm-release-$(BR_FMDEPS_VERSION)
+
+build-release: $(RELEASE_TAG)
+.PHONY: build-release
+
+$(RELEASE_TAG): files/fm-artifact.zip files/fmdocs_python_deps.txt
+	@echo "[DOCKER] Building $(RELEASE_TAG)"
+	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
 		--platform linux/amd64 \
 		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) -f Dockerfile-release .
-.PHONY: build-release
+.PHONY: $(RELEASE_TAG)
+
+tag-release: $(RELEASE_TAG)
+	@echo "[DOCKER] Tagging $< as fm-release"
+	@docker image tag $(BR_REGISTRY):$< $(BR_REGISTRY):fm-release
+.PHONY: tag-release
 
 run-release: build-release
 	@echo "[DOCKER] Running fm-release"
-	$(Q)docker run -i -t $(BR_REGISTRY):fm-release
+	$(Q)docker run -i -t $(BR_REGISTRY):$(RELEASE_TAG)
 .PHONY: run-release
 
 push-release: build-release
 	@echo "[DOCKER] Pushing fm-release"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
-	$(Q)docker push $(BR_REGISTRY):fm-release
+	$(Q)docker push $(BR_REGISTRY):$(RELEASE_TAG)
 else
 	@echo "The command that would run would be:"
-	@echo "  docker push $(BR_REGISTRY):fm-release"
+	@echo "  docker push $(BR_REGISTRY):$(RELEASE_TAG)"
 	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
 endif
 
 .PHONY: push-release
+
+pull-release:
+	$(Q)docker pull $(BR_REGISTRY):$(RELEASE_TAG)
+
+.PHONY: pull-release
 
 PV = $(if $(shell which pv),pv,cat)
 
