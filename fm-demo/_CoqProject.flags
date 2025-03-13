@@ -1,0 +1,14 @@
+# Warns about entries in this _CoqProject
+-arg -w -arg -cannot-open-path
+# Warnings from `dune`
+-arg -w -arg -notation-incompatible-prefix
+-arg -w -arg -notation-overridden
+-arg -w -arg -custom-entry-overridden
+-arg -w -arg -redundant-canonical-projection
+-arg -w -arg -ambiguous-paths
+# Turn warning on hints into error:
+-arg -w -arg +deprecated-hint-without-locality
+-arg -w -arg +deprecated-instance-without-locality
+-arg -w -arg +deprecated-tacopt-without-locality
+-arg -w -arg +future-coercion-class-field
+-arg -w -arg +unknown-option

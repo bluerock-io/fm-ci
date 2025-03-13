@@ -111,13 +111,16 @@ and run the release image locally when working on improvements and debugging.
 
 ## Packaging the Image as a Tarball
 
-To package the image as `fm-release.tar.gz`:
+To package the image as `bluerock-fm-release-$VERSION.tar.gz`:
 ```sh
 make pack-release
 ```
 This will display a progress bar if `pv` is installed.
 
+To display `$VERSION`, run `make ver-release`.
+
+
 To load the image, run either `make unpack-release` or
 ```sh
-docker load -i fm-release.tar.gz
+docker load -i bluerock-fm-release-$VERSION.tar.gz
 ```

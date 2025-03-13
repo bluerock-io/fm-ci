@@ -114,7 +114,7 @@ run-default: tag-default
 .PHONY: run-default
 
 push-default: tag-default
-	@echo "[DOCKER] Pusing tag fm-default"
+	@echo "[DOCKER] Pushing tag fm-default"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):fm-default
@@ -158,7 +158,10 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 	@echo -e $(call color,$(CYAN),Downloading the artifact...)
 	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
 
-build-release: files/fm-artifact.zip
+files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
+	cp $< $@
+
+build-release: files/fm-artifact.zip files/fmdocs_python_deps.txt
 	@echo "[DOCKER] Building fm-release"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):fm-release \
 		--platform linux/amd64 \
@@ -171,7 +174,7 @@ run-release: build-release
 .PHONY: run-release
 
 push-release: build-release
-	@echo "[DOCKER] Pusing fm-release"
+	@echo "[DOCKER] Pushing fm-release"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):fm-release
@@ -185,14 +188,22 @@ endif
 
 PV = $(if $(shell which pv),pv,cat)
 
-fm-release.tar.gz: build-release
-	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > fm-release.tar.gz
+FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
 
-pack-release: fm-release.tar.gz
+ver-release:
+	@echo $(FM_RELEASE_FULL_VERSION)
+name-release:
+	@echo $(FM_RELEASE_TARBALL_NAME)
+
+$(FM_RELEASE_TARBALL_NAME).tar.gz: build-release
+	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > "$@"
+
+pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz
 .PHONY: pack-release
 
 unpack-release:
-	$(PV) fm-release.tar.gz | docker load
+	$(PV) $(FM_RELEASE_TARBALL_NAME).tar.gz | docker load
 .PHONY: unpack-release
 
 clean:
