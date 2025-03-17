@@ -1046,8 +1046,8 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    # Install the python deps.";
   sect "    " "Install dependencies" (fun () ->
   line "    - pip3 install -r python_requirements.txt");
-  sect "    " "Build ASTs" (fun () ->
-  line "    - ./fm-build.py -b -j${NJOBS} @ast");
+  sect "    " "Initialize checkout" (fun () ->
+  line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
 let output_config : unit -> unit = fun () ->
