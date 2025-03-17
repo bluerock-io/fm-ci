@@ -553,7 +553,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   end else begin
   line "    - ((dune build -j${NJOBS} \
                 @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output && ./fmdeps/fm-docs/ci-build.sh) \
+                  _build/install/default/bin/filter-dune-output) \
                 || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
@@ -1019,6 +1019,30 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py
                 --use-ci-output-format apps/vmm/"
 
+let fm_docs_job : Out_channel.t -> unit = fun oc ->
+  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
+  let sect = mk_sect line line in
+  let cmd indent f = f indent oc line sect in
+  line "fm-docs:";
+  common ~image:main_image ~dune_cache:true oc;
+  line "  script:";
+  line "    # Print environment for debug.";
+  line "    - env";
+  cmd  "    " bhv_cloning build_dir;
+  line "    - cd %s" build_dir;
+  line "    - time make -j ${NJOBS} init";
+  line "    - make dump_repos_info";
+  cmd  "    " checkout_commands main_build;
+  line "    - make statusm";
+  line "    # Increase the stack size for large files.";
+  line "    - ulimit -S -s 32768";
+  line "    # Install the python deps.";
+  sect "    " "Install dependencies" (fun () ->
+  line "    - pip3 install -r python_requirements.txt");
+  sect "    " "Build ASTs" (fun () ->
+  line "    - ./fm-build.py -b -j${NJOBS} @ast");
+  line "    - ./fmdeps/fm-docs/ci-build.sh"
+
 let output_config : Out_channel.t -> unit = fun oc ->
   (* Static header, with workflow config. *)
   output_static oc;
@@ -1032,6 +1056,10 @@ let output_config : Out_channel.t -> unit = fun oc ->
      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
   if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job oc;
+  (* fm-docs build *)
+  if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+    fm_docs_job oc
+  end;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
     cpp2v_core_llvm_job oc 19;
