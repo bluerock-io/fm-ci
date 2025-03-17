@@ -444,6 +444,26 @@ let checkout_commands indent config =
   init_command indent;
   List.iter (checkout_command indent) config
 
+module Checkout : sig
+  val make : name:string -> (Config.repo * string) list -> unit
+  val use_script : string -> name:string -> unit
+end = struct
+  let used = ref []
+
+  let template oc name = Printf.fprintf oc ".checkout_%s" name
+
+  let make ~name config =
+    line "%a:" template name;
+    line "  script:";
+    cmd  "  " checkout_commands config;
+    assert (not @@ List.exists (String.equal name) !used);
+    used := name :: !used
+
+  let use_script indent ~name =
+    assert (List.exists (String.equal name) !used);
+    line "%s- !reference [%a, script]" indent template name
+end
+
 let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
@@ -520,7 +540,7 @@ let main_job : unit -> unit = fun () ->
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
   sect "    " "Check out main branches" (fun () ->
-  cmd  "    " checkout_commands main_build);
+  cmd  "    " Checkout.use_script ~name:"main");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
@@ -626,7 +646,7 @@ let main_job : unit -> unit = fun () ->
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out all reference branches" (fun () ->
-  cmd  "    " checkout_commands ref_build);
+  cmd  "    " Checkout.use_script ~name:"ref");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
   sect "    " "Build reference ASTs" (fun () ->
@@ -671,7 +691,7 @@ let main_job : unit -> unit = fun () ->
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out main branches (again)" (fun () ->
-  cmd  "    " checkout_commands main_build);
+  cmd  "    " Checkout.use_script ~name:"main");
   sect "    " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
@@ -807,7 +827,7 @@ let nova_job : unit -> unit = fun () ->
   line "    - cd %s" clone_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
                 > $CI_PROJECT_DIR/gitshas.txt";
@@ -864,7 +884,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -897,7 +917,7 @@ let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -957,7 +977,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -994,7 +1014,7 @@ let proof_tidy : unit -> unit = fun () ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
   line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
@@ -1019,7 +1039,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
@@ -1033,6 +1053,14 @@ let fm_docs_job : unit -> unit = fun () ->
 let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
   output_static ();
+
+  (* create checkout templates *)
+  Checkout.make ~name:"main" main_build;
+
+  begin match ref_build with None -> () | Some(ref_build) ->
+    Checkout.make ~name:"ref" ref_build
+  end;
+
   (* Main bhv build with performance comparison support. *)
   main_job ();
   (* Stop here if we only want the full job. *)
