@@ -370,14 +370,29 @@ let _ =
 (** Location of the bhv checkout in CI builds. *)
 let build_dir = "/tmp/build-dir"
 
-let output_static : Out_channel.t -> unit = fun oc ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  line "# Dynamically generated CI configuration.";
-  line "";
-  line "workflow:";
-  line "  rules:";
-  line "    - if: $CI_PIPELINE_SOURCE == 'parent_pipeline'";
-  line ""
+type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
+(* line1 and line2 will always be the same argument but OCaml's type system is
+   not strong enough to allow using the same variable here because line is
+   applied to different formats. *)
+let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_channel, unit) format -> 'b) : sect =
+  let fresh_name =
+    let counter = ref 0 in
+    fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
+  in
+  fun spaces header ?(collapsed=true) cmd ->
+  let name = fresh_name () in
+  (* magic strings taken from
+      https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
+      on 2024/08/06 *)
+  if collapsed then
+    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
+      spaces name header
+  else
+    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
+      spaces name header;
+  cmd ();
+  line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+    spaces name
 
 let common_ci_image oc tag =
   let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci" in
@@ -388,37 +403,73 @@ let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
 let repo_url oc name =
   Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
 
+module type CHANNEL = sig
+  val oc : Out_channel.t
+end
 
-type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
+module Output (C : CHANNEL) = struct
+include C
 
-let init_command indent oc _ (sect : sect) =
+let line fmt = Printf.fprintf oc (fmt ^^ "\n")
+let sect : sect = mk_sect line line
+let cmd indent f = f indent
+
+let output_static : unit -> unit = fun () ->
+  line "# Dynamically generated CI configuration.";
+  line "";
+  line "workflow:";
+  line "  rules:";
+  line "    - if: $CI_PIPELINE_SOURCE == 'parent_pipeline'";
+  line ""
+
+let init_command indent =
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
-  cmd  indent "- time make -j ${NJOBS} init")
+  cmd  indent "time make -j ${NJOBS} init")
 
 let is_bhv (repo, _) = String.equal repo.Config.name "bhv"
 
-let checkout_command indent oc _ (_ : sect) (repo, hash)  =
+let checkout_command indent (repo, hash)  =
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
   cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
 
-let checkout_commands indent oc line (sect : sect) config =
+let checkout_commands indent config =
   (* We must checkout bhv first to make sure we can run init so that the
      directories of all other repos are available. *)
   let (bhv, config) = List.partition is_bhv config in
   let bhv = match bhv with [bhv] -> bhv | _ -> assert false in
-  checkout_command indent oc line sect bhv;
-  init_command indent oc line sect;
-  List.iter (checkout_command indent oc line sect) config
+  checkout_command indent bhv;
+  init_command indent;
+  List.iter (checkout_command indent) config
+
+module Checkout : sig
+  val make : name:string -> (Config.repo * string) list -> unit
+  val use_script : string -> name:string -> unit
+end = struct
+  let used = ref []
+
+  let template oc name = Printf.fprintf oc ".checkout_%s" name
+
+  let make ~name config =
+    line "%a:" template name;
+    line "  script:";
+    cmd  "  " checkout_commands config;
+    assert (not @@ List.exists (String.equal name) !used);
+    used := name :: !used
+
+  let use_script indent ~name =
+    assert (List.exists (String.equal name) !used);
+    line "%s- !reference [%a, script]" indent template name
+end
 
 let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
-let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
-    fun ~image ~dune_cache oc ->
+let common : image:string -> dune_cache:bool -> unit =
+    fun ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "  image: %a" common_ci_image image;
   line "  tags:";
@@ -449,7 +500,7 @@ let common : image:string -> dune_cache:bool -> Out_channel.t -> unit =
   line "      - scheduler_failure";
   line "      - stale_schedule"
 
-let bhv_cloning : string -> Out_channel.t -> 'a -> 'b -> string -> unit = fun indent oc _ _ destdir ->
+let bhv_cloning : string -> string -> unit = fun indent destdir ->
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   let (_, hash) =
     try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
@@ -459,35 +510,9 @@ let bhv_cloning : string -> Out_channel.t -> 'a -> 'b -> string -> unit = fun in
   cmd indent "git -C %s fetch --quiet origin %s" destdir hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
 
-(* line1 and line2 will always be the same argument but OCaml's type system is
-   not strong enough to allow using the same variable here because line is
-   applied to different formats. *)
-let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_channel, unit) format -> 'b) : sect =
-  let fresh_name =
-    let counter = ref 0 in
-    fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
-  in
-  fun spaces header ?(collapsed=true) cmd ->
-  let name = fresh_name () in
-  (* magic strings taken from
-      https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
-      on 2024/08/06 *)
-  if collapsed then
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
-      spaces name header
-  else
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
-      spaces name header;
-  cmd ();
-  line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
-    spaces name
-
-let main_job : Out_channel.t -> unit = fun oc ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
+let main_job : unit -> unit = fun () ->
   line "full-build%s:" (if ref_build = None then "" else "-compare");
-  common ~image:main_image ~dune_cache:(full_timing = `No) oc;
+  common ~image:main_image ~dune_cache:(full_timing = `No);
   line "  script:";
   line "    # Print environment for debug.";
   sect "    " "Environment" (fun () ->
@@ -515,7 +540,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
   sect "    " "Check out main branches" (fun () ->
-  cmd  "    " checkout_commands main_build);
+  cmd  "    " Checkout.use_script ~name:"main");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
@@ -553,7 +578,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   end else begin
   line "    - ((dune build -j${NJOBS} \
                 @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output && ./fmdeps/fm-docs/ci-build.sh) \
+                  _build/install/default/bin/filter-dune-output) \
                 || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
@@ -621,7 +646,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out all reference branches" (fun () ->
-  cmd  "    " checkout_commands ref_build);
+  cmd  "    " Checkout.use_script ~name:"ref");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
   sect "    " "Build reference ASTs" (fun () ->
@@ -666,7 +691,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out main branches (again)" (fun () ->
-  cmd  "    " checkout_commands main_build);
+  cmd  "    " Checkout.use_script ~name:"main");
   sect "    " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
@@ -762,7 +787,7 @@ let main_job : Out_channel.t -> unit = fun oc ->
   line "    reports:";
   line "      codequality: gl-code-quality-report.json"
 
-let nova_job : Out_channel.t -> unit = fun oc ->
+let nova_job : unit -> unit = fun () ->
   let (nova, (_, hashes)) =
     try
       List.find (fun (repo, _) -> repo.Config.name = "NOVA") repos_with_hashes
@@ -786,12 +811,9 @@ let nova_job : Out_channel.t -> unit = fun oc ->
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
   let image = main_image in
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
   line "";
   line "%s:" gen_name;
-  common ~image ~dune_cache:true oc;
+  common ~image ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -805,7 +827,7 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   line "    - cd %s" clone_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
                 > $CI_PROJECT_DIR/gitshas.txt";
@@ -851,13 +873,10 @@ let nova_job : Out_channel.t -> unit = fun oc ->
   line "    branch: %s" nova_branch;
   line "    strategy: depend"
 
-let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
+let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-llvm-%i:" llvm;
-  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true oc;
+  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -865,7 +884,7 @@ let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -887,13 +906,10 @@ let cpp2v_core_llvm_job : Out_channel.t -> int -> unit = fun oc llvm ->
                 fmdeps/cpp2v-core @fmdeps/cpp2v-core/runtest 2>&1 | \
                 _build/install/default/bin/filter-dune-output"
 
-let cpp2v_core_public_job : Out_channel.t -> int -> unit = fun oc llvm ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
+let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-public-llvm-%i:" llvm;
-  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true oc;
+  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -901,7 +917,7 @@ let cpp2v_core_public_job : Out_channel.t -> int -> unit = fun oc llvm ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -919,7 +935,7 @@ let cpp2v_core_public_job : Out_channel.t -> int -> unit = fun oc llvm ->
                 coq-upoly coq-cpp2v coq-cpp2v-bin coq-lens coq-lens-elpi"
 [@@warning "-32"]
 
-let cpp2v_core_pages_publish : Out_channel.t -> unit = fun oc ->
+let cpp2v_core_pages_publish : unit -> unit = fun () ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "";
   line "cpp2v-docs-publish:";
@@ -950,13 +966,10 @@ let cpp2v_core_pages_publish : Out_channel.t -> unit = fun oc ->
   line "    - git push origin gh-pages"
 
 
-let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
+let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:main_image ~dune_cache:true oc;
+  common ~image:main_image ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -964,7 +977,7 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
   line "    # Create Directory structure for dune";
@@ -986,17 +999,14 @@ let cpp2v_core_pages_job : Out_channel.t -> unit = fun oc ->
     match commit_branch with None -> false | Some(commit_branch) ->
     project_name = "cpp2v-core" && main_branch "cpp2v-core" = commit_branch
   in
-  if publish then cpp2v_core_pages_publish oc
+  if publish then cpp2v_core_pages_publish ()
 
 (* TODO (FM-4443): generalize to:
    1) run on all [.v] artifacts
    2) produce a code quality report that is consumeable by gitlab. *)
-let proof_tidy : Out_channel.t -> unit = fun oc ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  let sect = mk_sect line line in
-  let cmd indent f = f indent oc line sect in
+let proof_tidy : unit -> unit = fun () ->
   line "proof-tidy:";
-  common ~image:main_image ~dune_cache:true oc;
+  common ~image:main_image ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -1004,7 +1014,7 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   line "    - cd %s" build_dir;
   line "    - time make -j ${NJOBS} init";
   line "    - make dump_repos_info";
-  cmd  "    " checkout_commands main_build;
+  cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
   line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
@@ -1019,29 +1029,72 @@ let proof_tidy : Out_channel.t -> unit = fun oc ->
   line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py
                 --use-ci-output-format apps/vmm/"
 
-let output_config : Out_channel.t -> unit = fun oc ->
+let fm_docs_job : unit -> unit = fun () ->
+  line "fm-docs:";
+  common ~image:main_image ~dune_cache:true;
+  line "  script:";
+  line "    # Print environment for debug.";
+  line "    - env";
+  cmd  "    " bhv_cloning build_dir;
+  line "    - cd %s" build_dir;
+  line "    - time make -j ${NJOBS} init";
+  line "    - make dump_repos_info";
+  cmd  "    " Checkout.use_script ~name:"main";
+  line "    - make statusm";
+  line "    # Increase the stack size for large files.";
+  line "    - ulimit -S -s 32768";
+  line "    # Install the python deps.";
+  sect "    " "Install dependencies" (fun () ->
+  line "    - pip3 install -r python_requirements.txt");
+  sect "    " "Initialize checkout" (fun () ->
+  line "    - ./fm-build.py -b -j${NJOBS}");
+  line "    - ./fmdeps/fm-docs/ci-build.sh"
+
+let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
-  output_static oc;
+  output_static ();
+
+  (* create checkout templates *)
+  Checkout.make ~name:"main" main_build;
+
+  begin match ref_build with None -> () | Some(ref_build) ->
+    Checkout.make ~name:"ref" ref_build
+  end;
+
   (* Main bhv build with performance comparison support. *)
-  main_job oc;
+  main_job ();
   (* Stop here if we only want the full job. *)
   match trigger.only_full_build with true -> () | false ->
   (* Proof tidy job. *)
-  proof_tidy oc;
+  proof_tidy ();
   (* Triggered NOVA build.
      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-  if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job oc;
+  if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
+  (* fm-docs build *)
+  if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+    fm_docs_job ()
+  end;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job oc 19;
-    cpp2v_core_llvm_job oc 20;
+    cpp2v_core_llvm_job 19;
+    cpp2v_core_llvm_job 20;
     (*cpp2v_core_public_job oc "16";*)
-    cpp2v_core_pages_job oc;
+    cpp2v_core_pages_job ();
   end
+
+end
 
 let _ =
   (* Generate the configuration. *)
   perr "#### Generating the configuration file ####";
   perr "Target file: %S." yaml_file;
-  Out_channel.with_open_text yaml_file output_config
+  Out_channel.with_open_text yaml_file @@ (fun oc ->
+    let module M = Output(struct let oc = oc end) in
+    M.output_config ()
+  );
+  perr "#### Contents of %S" yaml_file;
+  let contents =
+    In_channel.with_open_bin yaml_file In_channel.input_all
+  in
+  perr "%s" contents
