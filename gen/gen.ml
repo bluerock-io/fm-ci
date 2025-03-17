@@ -1044,4 +1044,9 @@ let _ =
   (* Generate the configuration. *)
   perr "#### Generating the configuration file ####";
   perr "Target file: %S." yaml_file;
-  Out_channel.with_open_text yaml_file output_config
+  Out_channel.with_open_text yaml_file output_config;
+  perr "#### Contents of %S" yaml_file;
+  let contents =
+    In_channel.with_open_bin yaml_file In_channel.input_all
+  in
+  perr "%s" contents
