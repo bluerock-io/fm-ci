@@ -1034,8 +1034,6 @@ let output_config : Out_channel.t -> unit = fun oc ->
   if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job oc;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job oc 16;
-    cpp2v_core_llvm_job oc 17;
     cpp2v_core_llvm_job oc 19;
     cpp2v_core_llvm_job oc 20;
     (*cpp2v_core_public_job oc "16";*)
