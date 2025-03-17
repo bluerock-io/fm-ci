@@ -2,7 +2,7 @@
 
 [versions]
 image = "2025-02-26"
-main_llvm = 18
+main_llvm = 19
 main_swipl = "9.2.7"
 
 # Repository configuration template:
