@@ -101,6 +101,8 @@ To set up new CI images, e.g., with new FM dependencies, you need to:
     - Merge your `fm-ci` MR and confirm that CI passes.
     - Release the atomic lock.
 
+To add an LLVM version, also update the hardcoded list in `gen.ml`.
+
 ## Public Release Image
 
 The public release image setup is also covered by the `Makefile`. The relevant

@@ -1037,6 +1037,7 @@ let output_config : Out_channel.t -> unit = fun oc ->
     cpp2v_core_llvm_job oc 16;
     cpp2v_core_llvm_job oc 17;
     cpp2v_core_llvm_job oc 19;
+    cpp2v_core_llvm_job oc 20;
     (*cpp2v_core_public_job oc "16";*)
     cpp2v_core_pages_job oc;
   end
