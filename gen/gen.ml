@@ -394,7 +394,7 @@ type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
 let init_command indent oc _ (sect : sect) =
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
-  cmd  indent "- time make -j ${NJOBS} init")
+  cmd  indent "time make -j ${NJOBS} init")
 
 let is_bhv (repo, _) = String.equal repo.Config.name "bhv"
 
