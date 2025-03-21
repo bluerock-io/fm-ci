@@ -27,6 +27,8 @@ This may take a few minutes the first time that you do it.
 
 ![Folder contains a Dev Container configuration file. Reopen folder to develop in a container](<VsCode Prompt 1.png>)
 
+Press "Reopen in Container". Then VsCode will prepare a Docker container for development in the image, based on our Docker image; this might take a few minutes.
+
 The folders with the demo code are shared with the host computer and should be
 persisted reliably, while the rest will disappear easily on upgrades.
 **Warning**: Do _not_ do important work inside this demo without backups!
