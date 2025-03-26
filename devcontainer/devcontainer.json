@@ -1,0 +1,29 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+{
+  "name": "BlueRock-release",
+  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-2025-02-26-swipl-9.2.7-llvm-${env:LLVM_VERSION}",
+  // "build": {
+  //	"dockerfile": "Dockerfile",
+  //	  "options": ["--platform", "linux/amd64", "--no-cache"]
+  //},
+  "mounts": [
+    {
+      "source": "${env:DUNE_CACHE_DOCKER}",
+      "target": "/home/coq/.cache/dune",
+      "type": "bind"
+    }
+  ],
+  "runArgs": [
+    "--platform",
+    "linux/amd64"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // "coq-community.vscoq1"
+        "maximedenes.vscoq@2.2.4"
+      ]
+    }
+  }
+}
