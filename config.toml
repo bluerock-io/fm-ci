@@ -24,6 +24,16 @@ main_swipl = "9.2.7"
 # Typically, the "deps" field includes all direct dependencies only. This is
 # not entirely necessary, since transitive dependencies are computed, but it
 # is somewhat easier not to mess up.
+#
+# When the "vendored" field is set, CI uses the repo's "branch" field instead of
+# the merge base of the MR's own branch and the repo's "branch" to generate
+# comparison data. This is necessary for repositories that need to integrate
+# upstream changes which usually cannot be applied cleanly to "branch". The
+# corresponding merge bases are generally ancient, incompatible with any other
+# of our repos, and thus useless.
+# Note that this only fixes *CI* for merge requests with such upstream changes
+# but it does not allow us to actually merge such changes through gitlab. The
+# corresponding branches must still be force pushed.
 
 [repo.fm-ci]
 
