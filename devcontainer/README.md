@@ -12,7 +12,7 @@ To use, copy **this directory** to the directory that you want to work in as
 ln -s fmdeps/fm-ci/devcontainer .devcontainer
 ```
 
-To make this work, you need to either have two environment variables set or to
+To make this work, you need to either have several environment variables set or to
 make replacements in the `devcontainer.json` file.
 
 - `${env:DUNE_CACHE_DOCKER}` should be the path to the dune cache for the docker
@@ -26,7 +26,7 @@ make replacements in the `devcontainer.json` file.
 If you want to avoid these manual replacements, you can use environment
 variables which are very easy to set up using a tool such as
 [direnv](https://direnv.net/) and associated VsCode extensions like
-https://marketplace.visualstudio.com/items?itemName=mkhl.direnv.
+[mkhl.direnv](https://marketplace.visualstudio.com/items?itemName=mkhl.direnv).
 
 Note: at least on MacOS, you will need to start VsCode from inside a shell for
 this to work.
