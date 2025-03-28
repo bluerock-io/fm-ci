@@ -9,7 +9,7 @@ To use, copy **this directory** to the directory that you want to work in as
 `.devcontainer`. From a BHV root, you can run the following:
 
 ```sh
-cp -r fmdeps/fm-ci/devcontainer .devcontainer
+ln -s fmdeps/fm-ci/devcontainer .devcontainer
 ```
 
 To make this work, you need to either have two environment variables set or to
