@@ -23,24 +23,31 @@ make replacements in the `devcontainer.json` file.
 
 If you want to avoid these manual replacements, you can use environment
 variables which are very easy to set up using a tool such as
-[direnv](https://direnv.net/).
+[direnv](https://direnv.net/) and associated VsCode extensions like
+https://marketplace.visualstudio.com/items?itemName=mkhl.direnv.
+
+Note: at least on MacOS, you will need to start VsCode from inside a shell for
+this to work.
 
 ### Using direnv
 
-If you have `direnv` configured, you simply need to add the following:
+If you have `direnv` configured, you simply need the following `.envrc`:
 
 ```sh
-# bluerock_root/.envrc
-export DUNE_CACHE_DOCKER=$PWD/.dune-cache
+export DUNE_CACHE_DOCKER=$PWD/dune-cache
 # choose your LLVM version
 export LLVM_VERSION=19
 ```
 
-Reminder `direnv` searches for `.envrc` files recursively upward so you can have
-a single file in the root of your BlueRock worktree and be all set. If you want
-per-worktree configuration, you can override variables using `source_up`. For
-example:
+This must be placed in your `bhv` checkout/worktree, or in a containing folder;
+the dune cache will be placed in that folder.
+This works because `direnv` searches for `.envrc` files recursively upward, so
+you can have a single file in the root of your BlueRock worktree and be all set.
 
+You will also need to trust the `.envrc` file!
+
+If you want per-worktree configuration, you can override variables using
+`source_up`. For example, to use LLVM 20 in just one worktree:
 ```sh
 source_up
 export LLVM_VERSION=20
