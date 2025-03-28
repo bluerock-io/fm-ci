@@ -2,7 +2,8 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/alpine
 {
   "name": "BlueRock-release",
-  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-2025-02-26-swipl-9.2.7-llvm-${env:LLVM_VERSION}",
+  "image":
+    "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-${env:BR_FMDEPS_VERSION}-swipl-${env:SWIPL_VERSION}-llvm-${env:LLVM_VERSION}",
   "mounts": [
     {
       "source": "${env:DUNE_CACHE_DOCKER}",
