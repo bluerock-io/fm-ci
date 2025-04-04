@@ -1077,7 +1077,7 @@ let output_config : unit -> unit = fun () ->
   end;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job 19;
+    cpp2v_core_llvm_job 18;
     cpp2v_core_llvm_job 20;
     (*cpp2v_core_public_job oc "16";*)
     cpp2v_core_pages_job ();
