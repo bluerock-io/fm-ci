@@ -897,7 +897,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
      This is necessary to ensure that our wrappers are functional.
      We cannot tell dune about the dependency of coqc_perf on rocq
      because the package that provides the rocq binary also installs
-     a binary called coqc, which is the name under which coqc_perf 
+     a binary called coqc, which is the name under which coqc_perf
      will be used.
   *)
   line "    - dune build @fmdeps/coq/install";
@@ -1077,7 +1077,7 @@ let output_config : unit -> unit = fun () ->
   end;
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job 19;
+    cpp2v_core_llvm_job 18;
     cpp2v_core_llvm_job 20;
     (*cpp2v_core_public_job oc "16";*)
     cpp2v_core_pages_job ();
