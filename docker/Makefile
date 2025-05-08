@@ -4,7 +4,7 @@ BR_FMDEPS_VERSION ?= 2025-05-08
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
-LLVM_VERSIONS ?= 16 17 18 19 20
+LLVM_VERSIONS ?= 18 19 20
 LLVM_MAIN_VERSION ?= 19
 SWIPL_VERSIONS ?= 9.0.4 9.2.7 9.3.8
 SWIPL_MAIN_VERSION ?= 9.2.7
