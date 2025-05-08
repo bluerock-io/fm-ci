@@ -87,6 +87,10 @@ branch = "br-main"
 deps = ["fm-ci", "coq"]
 vendored = true
 
+[repo.fm-tools]
+branch = "main"
+deps = ["fm-ci"]
+
 [repo.cpp2v-core]
 gitlab = "cpp2v-core"
 branch = "master"
