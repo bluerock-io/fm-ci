@@ -18,7 +18,7 @@ RUN cat /proc/cpuinfo /proc/meminfo \
       build-essential ca-certificates curl git less libgmp-dev m4 \
       openssh-client pkg-config rlwrap rsync sudo time unzip ninja-build \
       libffi-dev zlib1g-dev bsdmainutils git-lfs m4 zip cmake linux-perf \
-      moreutils python3-pip python3-venv python3-setuptools \
+      moreutils python3-pip python3-venv python3-setuptools bear \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
