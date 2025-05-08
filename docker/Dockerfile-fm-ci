@@ -115,7 +115,8 @@ RUN sudo apt-get update -qy \
       llvm-${LLVM_VER}-runtime clang-${LLVM_VER} clang-tools-${LLVM_VER} \
       libclang-common-${LLVM_VER}-dev libclang-${LLVM_VER}-dev \
       libclang1-${LLVM_VER} lld-${LLVM_VER} libc++-${LLVM_VER}-dev \
- && sudo apt-get clean
+ && sudo apt-get clean \
+ && sudo rm -rf /var/lib/apt/lists/*
 
 # Provide standardized location for llvm
 RUN sudo ln -s /usr/lib/llvm-${LLVM_VER} /usr/lib/llvm
