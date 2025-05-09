@@ -60,9 +60,12 @@ RUN set -x \
 ### Install python dependencies ##############################################
 #
 COPY files/python_deps.txt /tmp/files/python_deps.txt
+COPY files/fmdocs_python_deps.txt /tmp/files/fmdocs_python_deps.txt
 
 RUN python3 -m venv .pyenv \
- && ./.pyenv/bin/python -m pip install -r /tmp/files/python_deps.txt \
+ && ./.pyenv/bin/python -m pip install \
+ -r /tmp/files/python_deps.txt \
+ -r /tmp/files/fmdocs_python_deps.txt \
  && echo ". ~/.pyenv/bin/activate" >> .profile
 
 # Ensure a /usr/bin/perf binary exists; we bind-mount over this the correct

@@ -19,8 +19,5 @@ ENV ROCQPATH=$ROCQ_LIB/user-contrib
 COPY files/LICENSE /home/coq/LICENSE
 COPY files/dune-config /home/coq/.config/dune/config
 
-COPY files/fmdocs_python_deps.txt /tmp/files/fmdocs_python_deps.txt
-RUN pip3 install -r /tmp/files/fmdocs_python_deps.txt
-
 # XXX Work around fm-artifact issue
 RUN rm -rf /home/coq/.local/lib/coq/user-contrib/bluerock

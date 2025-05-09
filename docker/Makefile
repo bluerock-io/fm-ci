@@ -51,7 +51,7 @@ DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project
+fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project files/fmdocs_python_deps.txt
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
 		--platform linux/amd64 \
@@ -166,7 +166,7 @@ RELEASE_TAG := fm-release-$(BR_FMDEPS_VERSION)
 build-release: $(RELEASE_TAG)
 .PHONY: build-release
 
-$(RELEASE_TAG): files/fm-artifact.zip files/fmdocs_python_deps.txt
+$(RELEASE_TAG): files/fm-artifact.zip
 	@echo "[DOCKER] Building $(RELEASE_TAG)"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
 		--platform linux/amd64 \
