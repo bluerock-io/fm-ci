@@ -20,4 +20,4 @@ COPY files/LICENSE /home/coq/LICENSE
 COPY files/dune-config /home/coq/.config/dune/config
 
 # XXX Work around fm-artifact issue
-RUN rm -rf /home/coq/.local/lib/coq/user-contrib/bluerock
+RUN rm -rf /home/coq/.local/lib/coq/user-contrib/bluerock/cpp/{stdlib/test,demo}
