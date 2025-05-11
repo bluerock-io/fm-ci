@@ -1,12 +1,12 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
-BR_FMDEPS_VERSION ?= 2025-02-26
+BR_FMDEPS_VERSION ?= 2025-05-08
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
-LLVM_VERSIONS ?= 16 17 18 19 20
+LLVM_VERSIONS ?= 18 19 20
 LLVM_MAIN_VERSION ?= 19
-SWIPL_VERSIONS ?= 9.0.4 9.1.8 9.2.7 9.3.8
+SWIPL_VERSIONS ?= 9.0.4 9.2.7 9.3.8
 SWIPL_MAIN_VERSION ?= 9.2.7
 I_KNOW_WHAT_I_AM_DOING ?= no
 QUIET ?= true
@@ -51,7 +51,7 @@ DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project
+fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project files/fmdocs_python_deps.txt
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
 		--platform linux/amd64 \
@@ -166,7 +166,7 @@ RELEASE_TAG := fm-release-$(BR_FMDEPS_VERSION)
 build-release: $(RELEASE_TAG)
 .PHONY: build-release
 
-$(RELEASE_TAG): files/fm-artifact.zip files/fmdocs_python_deps.txt
+$(RELEASE_TAG): files/fm-artifact.zip
 	@echo "[DOCKER] Building $(RELEASE_TAG)"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
 		--platform linux/amd64 \
