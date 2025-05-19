@@ -210,7 +210,7 @@ ver-release:
 name-release:
 	@echo $(FM_RELEASE_TARBALL_NAME)
 
-$(FM_RELEASE_TARBALL_NAME).tar.gz: build-release
+$(FM_RELEASE_TARBALL_NAME).tar.gz:
 	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > "$@"
 
 pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz
