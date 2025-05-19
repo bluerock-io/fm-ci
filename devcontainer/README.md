@@ -6,10 +6,12 @@ feature of VS Code (does not work with Codium).
 ## How to Use
 
 To use, copy **this directory** to the directory that you want to work in as
-`.devcontainer`. From a BHV root, you can run the following:
+`.devcontainer`. From a BHV root, you can run either of the following:
 
 ```sh
 ln -s fmdeps/fm-ci/devcontainer .devcontainer
+# or
+cp -r fmdeps/fm-ci/devcontainer .devcontainer
 ```
 
 To make this work, you need to either have several environment variables set or to
