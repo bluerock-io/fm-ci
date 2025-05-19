@@ -1,6 +1,7 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2025-05-08
+RELEASE_TAG ?= fm-release-$(BR_FMDEPS_VERSION)
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -160,8 +161,6 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
-
-RELEASE_TAG := fm-release-$(BR_FMDEPS_VERSION)
 
 build-release: $(RELEASE_TAG)
 .PHONY: build-release
