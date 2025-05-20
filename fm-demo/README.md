@@ -1,6 +1,6 @@
 ## Packaging fm-dmeo
 
-Build a release image, then run
+Package a release image with `make pack-release`, then run
 ```
 ./sync.sh path/to/fm-demo-folders
 ```
