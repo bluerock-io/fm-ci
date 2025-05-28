@@ -2,11 +2,11 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/alpine
 {
   "name": "BlueRock-release",
-  //  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-release",
-  "build": {
-  	"dockerfile": "Dockerfile",
-  	"options": ["--platform", "linux/amd64", "--no-cache"]
-  },
+  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-release",
+  "runArgs": [
+    "--platform",
+    "linux/amd64"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
