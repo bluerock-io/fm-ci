@@ -11,7 +11,7 @@
     "vscode": {
       "extensions": [
         // "coq-community.vscoq1"
-        "maximedenes.vscoq@2.2.5"
+        "maximedenes.vscoq@2.2.6"
       ]
     }
   }
