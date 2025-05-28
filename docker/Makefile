@@ -1,6 +1,7 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2025-05-08
+RELEASE_TAG ?= fm-release
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -161,8 +162,6 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
-RELEASE_TAG := fm-release-$(BR_FMDEPS_VERSION)
-
 build-release: $(RELEASE_TAG)
 .PHONY: build-release
 
@@ -203,7 +202,9 @@ pull-release:
 
 PV = $(if $(shell which pv),pv,cat)
 
-FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+# We keep $(BR_IMAGE_VERSION) purely internal.
+# FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
 FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
 
 ver-release:
@@ -211,7 +212,7 @@ ver-release:
 name-release:
 	@echo $(FM_RELEASE_TARBALL_NAME)
 
-$(FM_RELEASE_TARBALL_NAME).tar.gz: build-release
+$(FM_RELEASE_TARBALL_NAME).tar.gz:
 	docker save $(BR_REGISTRY):fm-release | $(PV) | gzip > "$@"
 
 pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz

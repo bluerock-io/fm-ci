@@ -111,12 +111,18 @@ The latter should in principle not be used directly, since we have a scheduled
 job that builds and publishes the image daily. It is however useful to build
 and run the release image locally when working on improvements and debugging.
 
+All release-related commands support overriding the Docker image tag via the
+`RELEASE_TAG` environment variable.
+
 ## Packaging the Image as a Tarball
 
-To package the image as `bluerock-fm-release-$VERSION.tar.gz`:
+To package the image as `bluerock-fm-release-$VERSION.tar.gz`, you first need to
+build/download the image with `make build-release` or `make pull-release`, then run:
+
 ```sh
 make pack-release
 ```
+
 This will display a progress bar if `pv` is installed.
 
 To display `$VERSION`, run `make ver-release`.
