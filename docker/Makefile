@@ -202,7 +202,9 @@ pull-release:
 
 PV = $(if $(shell which pv),pv,cat)
 
-FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+# We keep $(BR_IMAGE_VERSION) purely internal.
+# FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
+FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
 FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
 
 ver-release:
