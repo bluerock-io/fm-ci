@@ -1,0 +1,9 @@
+docutils==0.16
+dominate==2.4.0
+pygments==2.5.2
+sphinx
+sphinx-rtd-theme
+rst2pdf
+# alectryon
+# Support Python 3.13 as well. This module was in the standard library before.
+standard-imghdr
