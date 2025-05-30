@@ -40,7 +40,7 @@ def format_file_hyperlink(filename, msg, lineno=None, no_hyperlinks=False):
 # - <https://bedrocksystems.atlassian.net/wiki/spaces/EN/pages/1130332164/vSwitch+File+Reorganization+Instructions#Proof-Artifact-Categories>
 
 COQ_COPYRIGHT = lambda year_str: f"""(*
- * Copyright (C) BlueRock Security Inc. {year_str}
+ * Copyright (C) BlueRock Security, Inc. {year_str}
  *
  * This software is distributed under the terms of the BlueRock Open-Source License.
  * See the LICENSE-BlueRock file in the repository root for details.
