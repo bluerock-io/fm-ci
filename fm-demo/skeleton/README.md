@@ -16,7 +16,7 @@ Contact [support@bluerock.io](mailto:support@bluerock.io).
 After extracting this file, run the following from this directory.
 
 ```sh
-docker load -i bluerock-fm-release-2025-02-26-1.tar.gz
+docker load -i bluerock-fm-release-2025-05-08.tar.gz
 code . &
 ```
 
@@ -53,7 +53,7 @@ particularly simple C++ functions.
 
 To step through `fm-docs` examples, you might also need to (re)build `fm-docs` via the following command in the same prompt.
 ```
-cd fm-docs; pip3 install -r python_requirements.txt; ./core-build.sh
+cd fm-docs; ./core-build.sh
 ```
 
 ## Experiment on Your Own
@@ -67,7 +67,7 @@ After you do this, you need to re-generate the build setup by running:
 
 ```sh
 rocq-bluerock-cpp-demo/proof$ ./dune-gen.sh
-dune b
+rocq-bluerock-cpp-demo/proof$ dune b
 ```
 
 This script will create build infrastructure to automatically build any .cpp or .hpp files
