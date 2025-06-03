@@ -83,4 +83,7 @@
   (yaml (= 3.2.0))
   (memtrace (= 0.2.3))
   (zarith (= 1.14))
-  (zarith_stubs_js (= v0.16.1))))
+  (zarith_stubs_js (= v0.16.1))
+  (bheap (= 2.0.0))
+  (ptset (= 1.0.1))
+  (ptmap (= 2.0.5))))
