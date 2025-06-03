@@ -1,0 +1,5 @@
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+
+# Syntax highlight .v files as Coq, not Verilog
+*.v gitlab-language=coq
