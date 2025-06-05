@@ -3,7 +3,6 @@ open Extra
 type versions = {
   image : string;
   main_llvm : int;
-  main_swipl : string;
 }
 
 type repo = {
@@ -39,7 +38,6 @@ let read_config : string -> config = fun file ->
     | "versions" ->
         let image = ref None in
         let main_llvm = ref None in
-        let main_swipl = ref None in
         let handle_version key value =
           let key = Table.Key.to_string key in
           match (key, value) with
@@ -49,9 +47,6 @@ let read_config : string -> config = fun file ->
           | ("main_llvm" , TInt(i)   ) -> main_llvm := Some(i)
           | ("main_llvm" , _         ) ->
               panic "expected integer in field [versions.%s]" key
-          | ("main_swipl", TString(s)) -> main_swipl := Some(s)
-          | ("main_swipl", _         ) ->
-              panic "expected string in field [versions.%s]" key
           | (_                   , _         ) ->
               panic "unknown field key [versions.%s]" key
         in
@@ -68,11 +63,7 @@ let read_config : string -> config = fun file ->
           try Option.get !main_llvm with Invalid_argument(_) ->
           panic "[versions.main_llvm] is mandatory" file
         in
-        let main_swipl =
-          try Option.get !main_swipl with Invalid_argument(_) ->
-          panic "[versions.main_swipl] is mandatory" file
-        in
-        versions := Some({image; main_llvm; main_swipl})
+        versions := Some({image; main_llvm})
     | "repo"   ->
         let table =
           match value with TTable(table) -> table | _ ->

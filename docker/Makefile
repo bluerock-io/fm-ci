@@ -7,8 +7,6 @@ RELEASE_TAG ?= fm-release
 BR_IMAGE_VERSION ?= 1
 LLVM_VERSIONS ?= 18 19 20
 LLVM_MAIN_VERSION ?= 19
-SWIPL_VERSIONS ?= 9.0.4 9.2.7 9.3.8
-SWIPL_MAIN_VERSION ?= 9.2.7
 I_KNOW_WHAT_I_AM_DOING ?= no
 QUIET ?= true
 
@@ -52,26 +50,25 @@ DOCKER_RUN_TARGETS =
 DOCKER_PUSH_TARGETS =
 
 define image-target
-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project files/fmdocs_python_deps.txt
+fm-$$(BR_FMDEPS_VERSION)-llvm-$1: Dockerfile-fm-ci files/_br-fm-deps.opam files/_dune-project files/fmdocs_python_deps.txt
 	@echo "[DOCKER] Building $$@"
 	$$(Q)docker buildx build --pull \
 		--platform linux/amd64 \
 		-t $$(BR_REGISTRY):$$@ \
 		--build-arg BR_FMDEPS_VERSION=$$(BR_FMDEPS_VERSION) \
 		--build-arg BR_IMAGE_VERSION=$$(BR_IMAGE_VERSION) \
-		--build-arg BR_SWIPL_VERSION=$1 \
-		--build-arg BR_LLVM_MAJ_VER=$2 \
+		--build-arg BR_LLVM_MAJ_VER=$1 \
 		-f $$< .
-.PHONY: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
-DOCKER_BUILD_TARGETS += fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+.PHONY: fm-$$(BR_FMDEPS_VERSION)-llvm-$1
+DOCKER_BUILD_TARGETS += fm-$$(BR_FMDEPS_VERSION)-llvm-$1
 
-run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+run-fm-$$(BR_FMDEPS_VERSION)-llvm-$1: fm-$$(BR_FMDEPS_VERSION)-llvm-$1
 	@echo "[DOCKER] Running $$<"
 	$$(Q)docker run -i -t $$(BR_REGISTRY):$$<
-.PHONY: run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
-DOCKER_RUN_TARGETS += run-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+.PHONY: run-fm-$$(BR_FMDEPS_VERSION)-llvm-$1
+DOCKER_RUN_TARGETS += run-fm-$$(BR_FMDEPS_VERSION)-llvm-$1
 
-push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2: fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+push-fm-$$(BR_FMDEPS_VERSION)-llvm-$1: fm-$$(BR_FMDEPS_VERSION)-llvm-$1
 	@echo "[DOCKER] Pushing $$<"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
@@ -81,14 +78,12 @@ else
 	@echo "  docker push $$(BR_REGISTRY):$$<"
 	@echo -e $(call color,$(CYAN),Use I_KNOW_WHAT_I_AM_DOING=yes to actually run it)
 endif
-.PHONY: push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
-DOCKER_PUSH_TARGETS += push-fm-$$(BR_FMDEPS_VERSION)-swipl-$1-llvm-$2
+.PHONY: push-fm-$$(BR_FMDEPS_VERSION)-llvm-$1
+DOCKER_PUSH_TARGETS += push-fm-$$(BR_FMDEPS_VERSION)-llvm-$1
 endef
 
 $(foreach llvm,$(LLVM_VERSIONS),\
-	$(eval $(call image-target,$(SWIPL_MAIN_VERSION),$(llvm))))
-$(foreach swipl,$(filter-out $(SWIPL_MAIN_VERSION),$(SWIPL_VERSIONS)),\
-	$(eval $(call image-target,$(swipl),$(LLVM_MAIN_VERSION))))
+	$(eval $(call image-target,$(llvm))))
 
 build: $(DOCKER_BUILD_TARGETS)
 .PHONY: build
@@ -102,7 +97,7 @@ list-targets:
 	@echo "$(DOCKER_PUSH_TARGETS)" | tr ' ' '\n' | sort -V
 .PHONY: list-targets
 
-DEFAULT_TAG := fm-$(BR_FMDEPS_VERSION)-swipl-$(SWIPL_MAIN_VERSION)-llvm-$(LLVM_MAIN_VERSION)
+DEFAULT_TAG := fm-$(BR_FMDEPS_VERSION)-llvm-$(LLVM_MAIN_VERSION)
 
 tag-default: $(DEFAULT_TAG)
 	@echo "[DOCKER] Tagging $< as fm-default"

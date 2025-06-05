@@ -13,9 +13,6 @@ let config = Config.read_config Sys.argv.(2)
 (** CI image version. *)
 let image_version = config.Config.versions.Config.image
 
-(** Main version of SWI-Prolog (usable with all supported LLVM versions). *)
-let main_swipl_version = config.Config.versions.Config.main_swipl
-
 (** Main version of LLVM (usable with all supported SWI-Prolog versions). *)
 let main_llvm_version = config.Config.versions.Config.main_llvm
 
@@ -35,7 +32,7 @@ let repos_destdir = "repos"
 let fm_ci_project_name = "formal-methods/fm-ci"
 
 (** Information about the originating repository (trigger). *)
-let trigger = Info.get_trigger ~main_swipl_version
+let trigger = Info.get_trigger ()
 
 let _ =
   (* Output info: originating repository / trigger. *)
@@ -43,7 +40,7 @@ let _ =
   let Info.{project_title; project_path; project_name; _} = trigger in
   let Info.{commit_sha; commit_branch; _} = trigger in
   let Info.{pipeline_source; trigger_kind; _} = trigger in
-  let Info.{trim_dune_cache; only_full_build; default_swipl; _} = trigger in
+  let Info.{trim_dune_cache; only_full_build; _} = trigger in
   perr "Pipeline triggered from repository %s:" project_title;
   perr " - Project title  : %s" project_title;
   perr " - Project path   : %s" project_path;
@@ -53,7 +50,6 @@ let _ =
   perr " - Trigger kind   : %s" trigger_kind;
   perr " - Trim dune cache: %b" trim_dune_cache;
   perr " - Only full build: %b" only_full_build;
-  perr " - Default swipl  : %s" default_swipl;
   Option.iter (perr " - Commit branch  : %s (branch pipeline)") commit_branch
 
 (** Is the trigger comming from fm-ci (the current repository). *)
@@ -87,15 +83,11 @@ let _ =
   perr " - pipeline  : %s" pipeline_url
 
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
-let ci_image : swipl:string -> llvm:int -> string = fun ~swipl ~llvm ->
-  Printf.sprintf "fm-%s-swipl-%s-llvm-%i" image_version swipl llvm
-
-(** CI image with the default version of SWI-Prolog. *)
-let ci_image_default_swipl : llvm:int -> string = fun ~llvm ->
-  ci_image ~swipl:trigger.default_swipl ~llvm
+let ci_image : llvm:int -> string = fun ~llvm ->
+  Printf.sprintf "fm-%s-llvm-%i" image_version llvm
 
 (** Main CI image, with latest supported LLVM. *)
-let main_image = ci_image_default_swipl ~llvm:main_llvm_version
+let main_image = ci_image ~llvm:main_llvm_version
 
 (** [main_branch project] gives the name of the main branch of [project]. This
     relies on the configuration file, and the code panics if no project with a
@@ -876,7 +868,7 @@ let nova_job : unit -> unit = fun () ->
 let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-llvm-%i:" llvm;
-  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true;
+  common ~image:(ci_image ~llvm) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -909,7 +901,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
 let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-public-llvm-%i:" llvm;
-  common ~image:(ci_image_default_swipl ~llvm) ~dune_cache:true;
+  common ~image:(ci_image ~llvm) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";

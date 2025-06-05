@@ -80,28 +80,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.6.4 /uv /uvx /bin/
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 
-### Install SWI-Prolog #######################################################
-
-ARG BR_SWIPL_VERSION
-RUN test -n "${BR_SWIPL_VERSION}"
-
-RUN curl -O -L https://github.com/SWI-Prolog/swipl/archive/refs/tags/V${BR_SWIPL_VERSION}.tar.gz \
- && tar -xf V${BR_SWIPL_VERSION}.tar.gz \
- && rm V${BR_SWIPL_VERSION}.tar.gz \
- && mv swipl-${BR_SWIPL_VERSION} swipl \
- && mkdir swipl-build \
- && cd swipl-build \
- && cmake -DCMAKE_INSTALL_PREFIX=../.local -DSWIPL_PACKAGES=OFF \
-      -DINSTALL_DOCUMENTATION=OFF -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      ../swipl \
- && ninja \
- && ninja install \
- && cd .. \
- && rm -rf swipl-build swipl-build
-
-ENV PKG_CONFIG_PATH=/home/coq/.local/share/pkgconfig
-ENV SWI_HOME_DIR=/home/coq/.local/lib/swipl
-
 ### Install LLVM #############################################################
 
 ARG BR_LLVM_MAJ_VER
@@ -135,7 +113,7 @@ RUN test -n "${BR_FMDEPS_VERSION}"
 ARG BR_IMAGE_VERSION
 RUN test -n "${BR_IMAGE_VERSION}"
 
-ENV DOCKER_IMAGE_VERSION="fmdeps.${BR_FMDEPS_VERSION},swipl.${BR_SWIPL_VERSION},llvm.${LLVM_VER},image.${BR_IMAGE_VERSION}"
+ENV DOCKER_IMAGE_VERSION="fmdeps.${BR_FMDEPS_VERSION},llvm.${LLVM_VER},image.${BR_IMAGE_VERSION}"
 
 RUN git config --global --add safe.directory '*'
 ENV llvm_base_dir=/usr/lib/llvm/bin
