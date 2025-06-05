@@ -1,6 +1,6 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
-BR_FMDEPS_VERSION ?= 2025-06-03
+BR_FMDEPS_VERSION ?= 2025-06-05
 RELEASE_TAG ?= fm-release
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
