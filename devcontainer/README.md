@@ -21,8 +21,7 @@ make replacements in the `devcontainer.json` file.
   images. This should probably be different than the `dune` cache for your
   system.
 - `${env:LLVM_VERSION}` should be the version of LLVM to use, e.g. `19`.
-- `${env:BR_FMDEPS_VERSION}` release of BlueRock FM dependencies (currently 2025-02-26).
-- `${env:SWIPL_VERSION}` SwiPL version to use (9.2.7).
+- `${env:BR_FMDEPS_VERSION}` release of BlueRock FM dependencies (currently 2025-06-03).
 
 
 If you want to avoid these manual replacements, you can use environment
@@ -41,8 +40,7 @@ If you have `direnv` configured, you simply need the following `.envrc`:
 export DUNE_CACHE_DOCKER=$PWD/dune-cache
 # choose your LLVM version
 export LLVM_VERSION=19
-export BR_FMDEPS_VERSION=2025-02-26
-export SWIPL_VERSION=9.2.7
+export BR_FMDEPS_VERSION=2025-06-03
 ```
 
 This must be placed in your `bhv` checkout/worktree, or in a containing folder;

@@ -4,8 +4,6 @@ type versions = {
   (** CI image version (format "YYYY-MM-DD"). *)
   main_llvm : int;
   (** Main LLVM major version (used, e.g., in the main build job). *)
-  main_swipl : string;
-  (** Main SWI-Prolog version (used, e.g., in the main build job). *)
 }
 
 (** Configuration for a repository. *)

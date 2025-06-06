@@ -3,7 +3,7 @@
 {
   "name": "BlueRock-release",
   "image":
-    "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-${env:BR_FMDEPS_VERSION}-swipl-${env:SWIPL_VERSION}-llvm-${env:LLVM_VERSION}",
+    "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-${env:BR_FMDEPS_VERSION}-llvm-${env:LLVM_VERSION}",
   "mounts": [
     {
       "source": "${env:DUNE_CACHE_DOCKER}",

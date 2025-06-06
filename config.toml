@@ -1,9 +1,8 @@
 # Version configuration (all mandatory).
 
 [versions]
-image = "2025-06-03"
+image = "2025-06-05"
 main_llvm = 19
-main_swipl = "9.2.7"
 
 # Repository configuration template:
 #

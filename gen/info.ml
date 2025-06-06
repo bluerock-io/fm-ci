@@ -18,7 +18,6 @@ type trigger = {
   trigger_kind : string;
   trim_dune_cache : bool;
   only_full_build : bool;
-  default_swipl : string;
 }
 
 let getenv_bool : default:bool -> string -> bool = fun ~default var ->
@@ -29,15 +28,8 @@ let getenv_bool : default:bool -> string -> bool = fun ~default var ->
   | Some(s) when s = "$" ^ var -> default
   | Some(s)                    -> panic "Unexpected value for %s: %S." var s
 
-let getenv_string : default:string -> string -> string = fun ~default var ->
-  match Sys.getenv_opt var with
-  | None                       -> default
-  | Some(s) when s = "$" ^ var -> default
-  | Some("")                   -> default
-  | Some(s)                    -> s
-
-let get_trigger : main_swipl_version:string -> trigger =
-    fun ~main_swipl_version ->
+let get_trigger : unit -> trigger =
+    fun _ ->
   let project_title = getenv "ORIGIN_CI_PROJECT_TITLE" in
   let project_path = getenv "ORIGIN_CI_PROJECT_PATH" in
   let commit_sha = getenv "ORIGIN_CI_COMMIT_SHA" in
@@ -63,14 +55,8 @@ let get_trigger : main_swipl_version:string -> trigger =
   in
   if only_full_build && not (pipeline_source = "schedule") then
     panic "Full-build-only jobs are only for scheduled pipelines.";
-  let default_swipl =
-    getenv_string ~default:main_swipl_version "FM_CI_DEFAULT_SWIPL"
-  in
-  if default_swipl <> main_swipl_version && not only_full_build then
-    panic "Only the main SWI-Prolog version can be used for full jobs.";
   {project_title; project_path; project_name; commit_sha; commit_branch;
-   pipeline_source; trigger_kind; trim_dune_cache; only_full_build;
-   default_swipl}
+   pipeline_source; trigger_kind; trim_dune_cache; only_full_build}
 
 type mr = {
   mr_iid : string;

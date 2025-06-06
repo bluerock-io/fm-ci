@@ -36,8 +36,6 @@ The following variables control what combinations of LLVM and SWI-Prolog are
 used in the produced CI images:
 - `LLVM_VERSIONS` lists LLVM versions for which an image is generated.
 - `LLVM_MAIN_VERSION` selects the main LLVM version (among the above).
-- `SWIPL_VERSIONS` lists SWI-Prolog versions for which an image is generated.
-- `SWIPL_MAIN_VERSION` selects the main SWI-Prolog version (among the above).
 
 **Note:** we do not generate images for the whole matrix of combinations. We
 instead generate images for one line and one row of the matrix:
@@ -91,7 +89,6 @@ To set up new CI images, e.g., with new FM dependencies, you need to:
  9. Modify the `versions` section of `fm-ci/config.toml` to:
     - Update the `image` field to contain the new image version,
     - Update the `main_llvm` field according to the `Makefile`.
-    - Update the `main_swipl` field according to the `Makefile`.
 10. Make an `fm-ci` MR, and use the `CI::same-branch` tag if needed.
     - Set the `CI::same-branch` tag in all non-NOVA MRs.
     - If a NOVA MR is used, set the `CI-skip-proof` tag.

@@ -10,7 +10,7 @@ RUN \
   && find fm-artifact/fm-install -name dune-package \
     | xargs sed -i "s|/builds/bedrocksystems/formal-methods/fm-ci/fm-install/|$LOCAL_PREFIX/|"  \
   && rsync -r fm-artifact/fm-install/ .local/ \
-  && rm -rf swipl bin fm-artifact
+  && rm -rf bin fm-artifact
 
 ENV OCAMLPATH=$LOCAL_PREFIX/lib
 ENV ROCQ_LIB=$OCAMLPATH/coq
