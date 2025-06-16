@@ -493,6 +493,7 @@ let common : image:string -> dune_cache:bool -> unit =
   line "      - stale_schedule"
 
 let bhv_cloning : string -> string -> unit = fun indent destdir ->
+  (* TODO lift? *)
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   let (_, hash) =
     try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
@@ -1035,9 +1036,6 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
-  line "    # Install the python deps.";
-  sect "    " "Install dependencies" (fun () ->
-  line "    - pip3 install -r python_requirements.txt");
   sect "    " "Initialize checkout" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
