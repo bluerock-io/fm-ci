@@ -357,6 +357,21 @@ let full_timing : [`No | `Partial | `Full] =
   | Some(v  ) ->
       panic "Invalid value for FULL_TIMING: %S (expected 0, 1 or 2)." v
 
+let do_opam : bool =
+  match mr with
+  | None -> true
+  | Some(mr) ->
+    not (List.mem "CI-skip-opam" mr.Info.mr_labels)
+
+let do_full_opam : bool =
+  match Sys.getenv_opt "FM_CI_FULL_OPAM" with
+  | None      -> false
+  | Some("0") -> false
+  | Some("1") -> true
+  | Some(v  ) ->
+    perr "Warning: Invalid value for FM_CI_FULL_OPAM: %S (expected unset, 0 or 1)." v;
+    false
+
 let _ =
   (* Output info: full timing mode. *)
   match full_timing with
@@ -1041,6 +1056,42 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
+let opam_install_job : unit -> unit = fun () ->
+  line "opam-install-build:";
+  common ~image:(with_registry main_image) ~dune_cache:true;
+  line "  script:";
+  if do_opam then begin
+    line "    # Print environment for debug.";
+    line "    - env";
+    cmd  "    " bhv_cloning build_dir;
+    line "    - cd %s" build_dir;
+    line "    - time make -j ${NJOBS} init";
+    line "    - make dump_repos_info";
+    cmd  "    " Checkout.use_script ~name:"main";
+    line "    - make statusm";
+    line "    # Increase the stack size for large files.";
+    line "    - ulimit -S -s 32768";
+    line "    - make -C fmdeps/cpp2v ast-prepare";
+    (* sect "    " "Initialize checkout" (fun () ->
+    line "    - ./fm-build.py -b -j${NJOBS}"); *)
+    (* XXX
+    Everything above is duplicated from fm_docs_job etc.,
+    and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
+    line "    - opam option depext=false";
+    line "    - opam update -y";
+    line "    - opam repo add archive git+https://github.com/ocaml/opam-repository-archive";
+    line "    - opam pin add -y -k rsync --recursive -n --with-version dev .";
+    if do_full_opam then begin
+      line "    - opam install -y coq";
+      line "    - (for i in $(opam pin | grep cpp2v-core/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
+      line "    - opam install -y rocq-bluerock-brick";
+      line "    - (for i in $(opam pin | grep cpp2v/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
+    end else
+      line "    - opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' | awk '{print $1}')"
+  end else begin
+    line "    - true";
+  end
+
 let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
   output_static ();
@@ -1066,6 +1117,7 @@ let output_config : unit -> unit = fun () ->
   if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
     fm_docs_job ()
   end;
+  opam_install_job ();
   (* Extra cpp2v-core builds. *)
   if needs_full_build "cpp2v-core" then begin
     cpp2v_core_llvm_job 18;
