@@ -168,15 +168,6 @@ The `dune` cache is trimmed by a weekly pipeline.
 
 It simply sets `FM_CI_TRIM_DUNE_CACHE=true`.
 
-### SWI-Prolog versions
-
-We test various versions of SWI-Prolog in weekly pipelins. These pipelines are
-set to only run the `full-build` job (which covers both bhv and NOVA).
-
-The following environment variables are set:
-- `FM_CI_ONLY_FULL_BUILD=true` to only enable the `full-build` job,
-- `FM_CI_DEFAULT_SWIPL=<version>` to select a specific SWI-prolog version.
-
 ### Release
 
 A daily pipeline is used to release the public release docker image. This is
@@ -185,6 +176,10 @@ and instead runs a special job building and publishing the CI image (see the
 `.gitlab-ci.yml` file for details).
 
 Infrastructure for building the release image is found in the `docker` folder.
+
+### Other knobs
+
+Variable `FM_CI_ONLY_FULL_BUILD=true`  disables everything except the `full-build` job.
 
 ## Possible improvements
 
