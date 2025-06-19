@@ -143,7 +143,7 @@ reference is taken to be the main branch.
 ## Adding new Repositories
 
 Steps for adding new FM repositories:
-1. Create a clone of the repository on Gitlab (probably under the 
+1. Create a clone of the repository on Gitlab (probably under the
    `formal-methods` group).
 2. Create a protected `br-main` branch.
 3. Add the repository to `bhv/boards/common/fm.mk`.
@@ -153,7 +153,7 @@ Steps for adding new FM repositories:
    dependencies).
 7. Add the repository to `fm-workspace`'s in `setup-fmdeps.sh` `FM_REPOS` (for external users). TODO: CI tests for this.
 
-In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token 
+In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token
 permissions` and enable `All groups and projects`.
 
 Note that it is also necessary to update the
