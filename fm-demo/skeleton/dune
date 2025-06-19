@@ -6,10 +6,8 @@
 
 (env
  (_
-  (flags :standard -warn-error +A -w +A-4-29-40..45-48-58..59-63..65-68-70)
+  (flags :standard %{read-lines:flags/ocamlc})
   (ocamlopt_flags :standard -O3 -unbox-closures)
   (coq
    (flags
-    (:standard
-      %{read-lines:flags/coqc}
-)))))
+    (:standard %{read-lines:flags/coqc})))))
