@@ -86,7 +86,7 @@ let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
 
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
-  Printf.sprintf "fm-%s-llvm-%i" image_version llvm
+  Printf.sprintf "%s:fm-%s-llvm-%i" registry image_version llvm
 
 (** Main CI image, with latest supported LLVM. *)
 let main_image = ci_image ~llvm:main_llvm_version
@@ -388,9 +388,6 @@ let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_cha
   line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     spaces name
 
-let common_ci_image oc tag =
-  Printf.fprintf oc "%s:%s" registry tag
-
 let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
 
 let repo_url oc name =
@@ -465,7 +462,7 @@ let artifacts_url =
 let common : image:string -> dune_cache:bool -> unit =
     fun ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  line "  image: %a" common_ci_image image;
+  line "  image: %s" image;
   line "  tags:";
   line "    - fm.nfs";
   line "  variables:";
