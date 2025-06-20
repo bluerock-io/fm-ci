@@ -82,6 +82,8 @@ let _ =
   perr " - target    : %s" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
 
+let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
+
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
   Printf.sprintf "fm-%s-llvm-%i" image_version llvm
@@ -387,7 +389,6 @@ let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_cha
     spaces name
 
 let common_ci_image oc tag =
-  let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci" in
   Printf.fprintf oc "%s:%s" registry tag
 
 let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
@@ -460,6 +461,7 @@ let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
+(** The Docker {[image]} name must not include the registry. *)
 let common : image:string -> dune_cache:bool -> unit =
     fun ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
@@ -803,10 +805,9 @@ let nova_job : unit -> unit = fun () ->
     in
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
-  let image = main_image in
   line "";
   line "%s:" gen_name;
-  common ~image ~dune_cache:true;
+  common ~image:main_image ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -859,7 +860,7 @@ let nova_job : unit -> unit = fun () ->
   line "  needs:";
   line "    - %s" gen_name;
   line "  variables:";
-  line "    UPSTREAM_IMAGE: \"%s\"" image;
+  line "    UPSTREAM_IMAGE: \"%s\"" main_image;
   line "    UPSTREAM_CI_JOB_ID: $ARTIFACT_CI_JOB_ID";
   line "  trigger:";
   line "    project: bedrocksystems/NOVA";
