@@ -86,6 +86,11 @@ let _ =
 let ci_image : llvm:int -> string = fun ~llvm ->
   Printf.sprintf "fm-%s-llvm-%i" image_version llvm
 
+let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
+
+let with_registry : string -> string = fun image ->
+  Printf.sprintf "%s:%s" registry image
+
 (** Main CI image, with latest supported LLVM. *)
 let main_image = ci_image ~llvm:main_llvm_version
 
@@ -352,6 +357,21 @@ let full_timing : [`No | `Partial | `Full] =
   | Some(v  ) ->
       panic "Invalid value for FULL_TIMING: %S (expected 0, 1 or 2)." v
 
+let do_opam : bool =
+  match mr with
+  | None -> true
+  | Some(mr) ->
+    not (List.mem "CI-skip-opam" mr.Info.mr_labels)
+
+let do_full_opam : bool =
+  match Sys.getenv_opt "FM_CI_FULL_OPAM" with
+  | None      -> false
+  | Some("0") -> false
+  | Some("1") -> true
+  | Some(v  ) ->
+    perr "Warning: Invalid value for FM_CI_FULL_OPAM: %S (expected unset, 0 or 1)." v;
+    false
+
 let _ =
   (* Output info: full timing mode. *)
   match full_timing with
@@ -385,10 +405,6 @@ let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_cha
   cmd ();
   line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     spaces name
-
-let common_ci_image oc tag =
-  let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci" in
-  Printf.fprintf oc "%s:%s" registry tag
 
 let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
 
@@ -460,10 +476,11 @@ let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
+(** The Docker {[image]} name must include the registry. *)
 let common : image:string -> dune_cache:bool -> unit =
     fun ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  line "  image: %a" common_ci_image image;
+  line "  image: %s" image;
   line "  tags:";
   line "    - fm.nfs";
   line "  variables:";
@@ -473,7 +490,7 @@ let common : image:string -> dune_cache:bool -> unit =
   line "    DUNE_CACHE: %sabled" (if dune_cache then "en" else "dis");
   line "    DUNE_CACHE_STORAGE_MODE: copy";
   line "    DUNE_CONFIG__BACKGROUND_DIGESTS: disabled";
-  line "    DUNE_PROFILE: release";
+  line "    DUNE_PROFILE: br_timing";
   line "    LLVM: '1'";
   line "    CHANGES_PATH : '**/*'";
   line "    GET_SOURCES_ATTEMPTS: 3";
@@ -505,7 +522,7 @@ let bhv_cloning : string -> string -> unit = fun indent destdir ->
 
 let main_job : unit -> unit = fun () ->
   line "full-build%s:" (if ref_build = None then "" else "-compare");
-  common ~image:main_image ~dune_cache:(full_timing = `No);
+  common ~image:(with_registry main_image) ~dune_cache:(full_timing = `No);
   line "  script:";
   line "    # Print environment for debug.";
   sect "    " "Environment" (fun () ->
@@ -803,10 +820,9 @@ let nova_job : unit -> unit = fun () ->
     in
     "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
   in
-  let image = main_image in
   line "";
   line "%s:" gen_name;
-  common ~image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -859,7 +875,7 @@ let nova_job : unit -> unit = fun () ->
   line "  needs:";
   line "    - %s" gen_name;
   line "  variables:";
-  line "    UPSTREAM_IMAGE: \"%s\"" image;
+  line "    UPSTREAM_IMAGE: \"%s\"" main_image;
   line "    UPSTREAM_CI_JOB_ID: $ARTIFACT_CI_JOB_ID";
   line "  trigger:";
   line "    project: bedrocksystems/NOVA";
@@ -869,7 +885,7 @@ let nova_job : unit -> unit = fun () ->
 let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-llvm-%i:" llvm;
-  common ~image:(ci_image ~llvm) ~dune_cache:true;
+  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -902,7 +918,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
 let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-public-llvm-%i:" llvm;
-  common ~image:(ci_image ~llvm) ~dune_cache:true;
+  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -962,7 +978,7 @@ let cpp2v_core_pages_publish : unit -> unit = fun () ->
 let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -999,7 +1015,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
    2) produce a code quality report that is consumeable by gitlab. *)
 let proof_tidy : unit -> unit = fun () ->
   line "proof-tidy:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -1024,7 +1040,7 @@ let proof_tidy : unit -> unit = fun () ->
 
 let fm_docs_job : unit -> unit = fun () ->
   line "fm-docs:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -1040,6 +1056,42 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
+let opam_install_job : unit -> unit = fun () ->
+  line "opam-install-build:";
+  common ~image:(with_registry main_image) ~dune_cache:true;
+  line "  script:";
+  if do_opam then begin
+    line "    # Print environment for debug.";
+    line "    - env";
+    cmd  "    " bhv_cloning build_dir;
+    line "    - cd %s" build_dir;
+    line "    - time make -j ${NJOBS} init";
+    line "    - make dump_repos_info";
+    cmd  "    " Checkout.use_script ~name:"main";
+    line "    - make statusm";
+    line "    # Increase the stack size for large files.";
+    line "    - ulimit -S -s 32768";
+    line "    - make -C fmdeps/cpp2v ast-prepare";
+    (* sect "    " "Initialize checkout" (fun () ->
+    line "    - ./fm-build.py -b -j${NJOBS}"); *)
+    (* XXX
+    Everything above is duplicated from fm_docs_job etc.,
+    and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
+    line "    - opam option depext=false";
+    line "    - opam update -y";
+    line "    - opam repo add archive git+https://github.com/ocaml/opam-repository-archive";
+    line "    - opam pin add -y -k rsync --recursive -n --with-version dev .";
+    if do_full_opam then begin
+      line "    - opam install -y coq";
+      line "    - (for i in $(opam pin | grep cpp2v-core/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
+      line "    - opam install -y rocq-bluerock-brick";
+      line "    - (for i in $(opam pin | grep cpp2v/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
+    end else
+      line "    - opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' | awk '{print $1}')"
+  end else begin
+    line "    - true";
+  end
+
 let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
   output_static ();
@@ -1052,25 +1104,30 @@ let output_config : unit -> unit = fun () ->
   end;
 
   (* Main bhv build with performance comparison support. *)
-  main_job ();
-  (* Stop here if we only want the full job. *)
-  match trigger.only_full_build with true -> () | false ->
-  (* Proof tidy job. *)
-  proof_tidy ();
-  (* Triggered NOVA build.
-     NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-     trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-  if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-  (* fm-docs build *)
-  if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
-    fm_docs_job ()
+  if not do_full_opam then begin
+    main_job ();
+    (* Stop here if we only want the full job. *)
+    match trigger.only_full_build with true -> () | false ->
+    (* Proof tidy job. *)
+    proof_tidy ();
+    (* Triggered NOVA build.
+      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
+    (* fm-docs build *)
+    if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+      fm_docs_job ()
+    end
   end;
+  opam_install_job ();
   (* Extra cpp2v-core builds. *)
-  if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job 18;
-    cpp2v_core_llvm_job 20;
-    (*cpp2v_core_public_job oc "16";*)
-    cpp2v_core_pages_job ();
+  if not do_full_opam then begin
+    if needs_full_build "cpp2v-core" then begin
+      cpp2v_core_llvm_job 18;
+      cpp2v_core_llvm_job 20;
+      (*cpp2v_core_public_job oc "16";*)
+      cpp2v_core_pages_job ();
+    end
   end
 
 end
