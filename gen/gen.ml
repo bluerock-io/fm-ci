@@ -1104,26 +1104,30 @@ let output_config : unit -> unit = fun () ->
   end;
 
   (* Main bhv build with performance comparison support. *)
-  main_job ();
-  (* Stop here if we only want the full job. *)
-  match trigger.only_full_build with true -> () | false ->
-  (* Proof tidy job. *)
-  proof_tidy ();
-  (* Triggered NOVA build.
-     NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-     trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-  if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-  (* fm-docs build *)
-  if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
-    fm_docs_job ()
+  if not do_full_opam then begin
+    main_job ();
+    (* Stop here if we only want the full job. *)
+    match trigger.only_full_build with true -> () | false ->
+    (* Proof tidy job. *)
+    proof_tidy ();
+    (* Triggered NOVA build.
+      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
+    (* fm-docs build *)
+    if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+      fm_docs_job ()
+    end
   end;
   opam_install_job ();
   (* Extra cpp2v-core builds. *)
-  if needs_full_build "cpp2v-core" then begin
-    cpp2v_core_llvm_job 18;
-    cpp2v_core_llvm_job 20;
-    (*cpp2v_core_public_job oc "16";*)
-    cpp2v_core_pages_job ();
+  if not do_full_opam then begin
+    if needs_full_build "cpp2v-core" then begin
+      cpp2v_core_llvm_job 18;
+      cpp2v_core_llvm_job 20;
+      (*cpp2v_core_public_job oc "16";*)
+      cpp2v_core_pages_job ();
+    end
   end
 
 end
