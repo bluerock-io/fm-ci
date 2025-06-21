@@ -490,7 +490,7 @@ let common : image:string -> dune_cache:bool -> unit =
   line "    DUNE_CACHE: %sabled" (if dune_cache then "en" else "dis");
   line "    DUNE_CACHE_STORAGE_MODE: copy";
   line "    DUNE_CONFIG__BACKGROUND_DIGESTS: disabled";
-  line "    DUNE_PROFILE: release";
+  line "    DUNE_PROFILE: br_timing";
   line "    LLVM: '1'";
   line "    CHANGES_PATH : '**/*'";
   line "    GET_SOURCES_ATTEMPTS: 3";
