@@ -82,11 +82,14 @@ let _ =
   perr " - target    : %s" mr_target_branch_name;
   perr " - pipeline  : %s" pipeline_url
 
-let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
-
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
-  Printf.sprintf "%s:fm-%s-llvm-%i" registry image_version llvm
+  Printf.sprintf "fm-%s-llvm-%i" image_version llvm
+
+let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
+
+let with_registry : string -> string = fun image ->
+  Printf.sprintf "%s:%s" registry image
 
 (** Main CI image, with latest supported LLVM. *)
 let main_image = ci_image ~llvm:main_llvm_version
@@ -458,7 +461,7 @@ let artifacts_url =
   let base = "https://bedrocksystems.gitlab.io/-/formal-methods/fm-ci/-" in
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
-(** The Docker {[image]} name must not include the registry. *)
+(** The Docker {[image]} name must include the registry. *)
 let common : image:string -> dune_cache:bool -> unit =
     fun ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
@@ -504,7 +507,7 @@ let bhv_cloning : string -> string -> unit = fun indent destdir ->
 
 let main_job : unit -> unit = fun () ->
   line "full-build%s:" (if ref_build = None then "" else "-compare");
-  common ~image:main_image ~dune_cache:(full_timing = `No);
+  common ~image:(with_registry main_image) ~dune_cache:(full_timing = `No);
   line "  script:";
   line "    # Print environment for debug.";
   sect "    " "Environment" (fun () ->
@@ -804,7 +807,7 @@ let nova_job : unit -> unit = fun () ->
   in
   line "";
   line "%s:" gen_name;
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -867,7 +870,7 @@ let nova_job : unit -> unit = fun () ->
 let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-llvm-%i:" llvm;
-  common ~image:(ci_image ~llvm) ~dune_cache:true;
+  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -900,7 +903,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
 let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "";
   line "cpp2v-public-llvm-%i:" llvm;
-  common ~image:(ci_image ~llvm) ~dune_cache:true;
+  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -960,7 +963,7 @@ let cpp2v_core_pages_publish : unit -> unit = fun () ->
 let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "";
   line "cpp2v-docs-gen:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -997,7 +1000,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
    2) produce a code quality report that is consumeable by gitlab. *)
 let proof_tidy : unit -> unit = fun () ->
   line "proof-tidy:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
@@ -1022,7 +1025,7 @@ let proof_tidy : unit -> unit = fun () ->
 
 let fm_docs_job : unit -> unit = fun () ->
   line "fm-docs:";
-  common ~image:main_image ~dune_cache:true;
+  common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
   line "    # Print environment for debug.";
   line "    - env";
