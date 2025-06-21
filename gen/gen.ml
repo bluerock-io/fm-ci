@@ -65,6 +65,9 @@ let _ =
 
 (** Information about the originating MR, if any. *)
 let mr = Info.get_mr ()
+let skip_proofs =
+  match mr with None -> false | Some(mr) ->
+  List.mem "CI-skip-proofs" mr.Info.mr_labels
 
 let _ =
   (* Output info: MR information. *)
@@ -1100,6 +1103,17 @@ let opam_install_job : unit -> unit = fun () ->
     line "    - true";
   end
 
+let skip_proof_job : unit -> unit = fun () ->
+  line "skip-proof-job:";
+  line "  allow_failure: true";
+  line "  tags:";
+  line "    - fm.nfs";
+  line "  image: %s" (with_registry main_image);
+  line "  script:";
+  line "    - echo \"Skipping build as requested via CI-skip-proof label.\"";
+  line "    - exit 1";
+  ()
+
 let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
   output_static ();
@@ -1111,8 +1125,9 @@ let output_config : unit -> unit = fun () ->
     Checkout.make ~name:"ref" ref_build
   end;
 
+  if skip_proofs then skip_proof_job ();
   (* Main bhv build with performance comparison support. *)
-  if not do_full_opam then begin
+  if not skip_proofs && not do_full_opam then begin
     main_job ();
     (* Stop here if we only want the full job. *)
     match trigger.only_full_build with true -> () | false ->
@@ -1127,9 +1142,9 @@ let output_config : unit -> unit = fun () ->
       fm_docs_job ()
     end
   end;
-  opam_install_job ();
+  if not skip_proofs then opam_install_job ();
   (* Extra cpp2v-core builds. *)
-  if not do_full_opam then begin
+  if not skip_proofs && not do_full_opam then begin
     if needs_full_build "cpp2v-core" then begin
       cpp2v_core_llvm_job 18;
       cpp2v_core_llvm_job 20;
