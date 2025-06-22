@@ -143,7 +143,7 @@ reference is taken to be the main branch.
 ## Adding new Repositories
 
 Steps for adding new FM repositories:
-1. Create a clone of the repository on Gitlab (probably under the 
+1. Create a clone of the repository on Gitlab (probably under the
    `formal-methods` group).
 2. Create a protected `br-main` branch.
 3. Add the repository to `bhv/boards/common/fm.mk`.
@@ -153,7 +153,7 @@ Steps for adding new FM repositories:
    dependencies).
 7. Add the repository to `fm-workspace`'s in `setup-fmdeps.sh` `FM_REPOS` (for external users). TODO: CI tests for this.
 
-In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token 
+In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token
 permissions` and enable `All groups and projects`.
 
 Note that it is also necessary to update the
@@ -168,15 +168,6 @@ The `dune` cache is trimmed by a weekly pipeline.
 
 It simply sets `FM_CI_TRIM_DUNE_CACHE=true`.
 
-### SWI-Prolog versions
-
-We test various versions of SWI-Prolog in weekly pipelins. These pipelines are
-set to only run the `full-build` job (which covers both bhv and NOVA).
-
-The following environment variables are set:
-- `FM_CI_ONLY_FULL_BUILD=true` to only enable the `full-build` job,
-- `FM_CI_DEFAULT_SWIPL=<version>` to select a specific SWI-prolog version.
-
 ### Release
 
 A daily pipeline is used to release the public release docker image. This is
@@ -185,6 +176,10 @@ and instead runs a special job building and publishing the CI image (see the
 `.gitlab-ci.yml` file for details).
 
 Infrastructure for building the release image is found in the `docker` folder.
+
+### Other knobs
+
+Variable `FM_CI_ONLY_FULL_BUILD=true`  disables everything except the `full-build` job.
 
 ## Possible improvements
 
