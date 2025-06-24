@@ -1072,6 +1072,52 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
+let docker_img_version = "27.3.1"
+let docker_img = Printf.sprintf "docker:%s" docker_img_version
+
+let docker_services : unit -> unit = fun () ->
+  line "  services:";
+  line "    - docker:%s-dind" docker_img_version
+
+(* XXX lens *)
+let with_bhv_path bhv_path config =
+  let open Config in
+  let ({name; gitlab; bhv_path = _; main_branch; deps; vendored}, hash) = config in
+  ({name; gitlab; bhv_path; main_branch; deps; vendored}, hash)
+
+let opam_docker_install_job : unit -> unit = fun () ->
+  let new_image_name = with_registry "fm-cibuild-latest" in
+  line "opam-docker-install-build:";
+  gen_common ~runner_tag:"fm.docker" ~image:docker_img ~dune_cache:true;
+  docker_services ();
+  line "  script:";
+  line "    # Print environment for debug.";
+  sect "    - " "Environment" (fun () ->
+  line "    - env");
+  let (fm_ci, _) = find_unique_config "fm-ci" main_build in
+  checkout_command "    - " (with_bhv_path "." fm_ci);
+  line "    - cd docker";
+  line "    - |-";
+  line "      cat > checkout_script.sh <<EOF";
+  checkout_commands "      " main_build;
+  line "      EOF";
+  line "    - cp checkout_script.sh $CI_PROJECT_DIR/checkout_script.sh";
+  line "    - cat checkout_script.sh";
+  line "    - echo \"$CI_REGISTRY_PASSWORD\" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY";
+  line "    - GIT_AUTH_TOKEN=%s docker build -f Dockerfile-checkout-opam-release \
+                --secret type=env,id=CI_JOB_TOKEN \
+                --build-arg BHV_COMMIT=%s \
+                --push \
+                -t %s ." token bhv_hash new_image_name;
+  (* line "    - docker push %s" new_image_name; *)
+  line "    - docker images";
+  line "  artifacts:";
+  line "    when: always";
+  line "    paths:";
+  line "      - checkout_script.sh";
+
+  ()
+
 let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
   line "opam-install-build:";
   common ~image:(with_registry main_image) ~dune_cache:true;
@@ -1131,7 +1177,10 @@ let output_config : unit -> unit = fun () ->
   if skip_proofs then
     skip_proof_job ()
   else begin
-    opam_install_job do_opam do_full_opam ();
+    if do_docker_opam then
+      opam_docker_install_job ()
+    else
+      opam_install_job do_opam do_full_opam ();
     (* This conditional is ad-hoc, but both [do_full_opam] and [do_docker_opam]
     are only set in special scheduled pipelines that are only needed for these jobs. *)
     if not do_full_opam && not do_docker_opam then begin
