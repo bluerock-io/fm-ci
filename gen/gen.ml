@@ -430,14 +430,18 @@ let output_static : unit -> unit = fun () ->
   line ""
 
 let init_command indent =
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
   cmd  indent "time make -j ${NJOBS} init")
 
-let is_bhv (repo, _) = String.equal repo.Config.name "bhv"
+let find_unique_config = fun name configs ->
+  let is_match (repo, _) = String.equal repo.Config.name name in
+  let (config, rest) = List.partition is_match configs in
+  let config = match config with [config] -> config | _ -> assert false in
+  (config, rest)
 
 let checkout_command indent (repo, hash)  =
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
   cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
@@ -445,11 +449,10 @@ let checkout_command indent (repo, hash)  =
 let checkout_commands indent config =
   (* We must checkout bhv first to make sure we can run init so that the
      directories of all other repos are available. *)
-  let (bhv, config) = List.partition is_bhv config in
-  let bhv = match bhv with [bhv] -> bhv | _ -> assert false in
+  let (bhv, rest) = find_unique_config "bhv" config in
   checkout_command indent bhv;
   init_command indent;
-  List.iter (checkout_command indent) config
+  List.iter (checkout_command indent) rest
 
 module Checkout : sig
   val make : name:string -> (Config.repo * string) list -> unit
@@ -462,7 +465,7 @@ end = struct
   let make ~name config =
     line "%a:" template name;
     line "  script:";
-    cmd  "  " checkout_commands config;
+    cmd  "  - " checkout_commands config;
     assert (not @@ List.exists (String.equal name) !used);
     used := name :: !used
 
@@ -476,12 +479,12 @@ let artifacts_url =
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
 (** The Docker {[image]} name must include the registry. *)
-let common : image:string -> dune_cache:bool -> unit =
-    fun ~image ~dune_cache ->
+let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
+    fun ~runner_tag ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "  image: %s" image;
   line "  tags:";
-  line "    - fm.nfs";
+  line "    - %s" runner_tag;
   line "  variables:";
   line "    CLICOLOR: 1";
   line "    GNUMAKEFLAGS: --no-print-directory";
@@ -508,16 +511,22 @@ let common : image:string -> dune_cache:bool -> unit =
   line "      - scheduler_failure";
   line "      - stale_schedule"
 
-let bhv_cloning : string -> string -> unit = fun indent destdir ->
-  (* TODO lift? *)
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+let common : image:string -> dune_cache:bool -> unit =
+    fun ~image ~dune_cache ->
+  gen_common ~runner_tag:"fm.nfs" ~image ~dune_cache
+
+let bhv_hash : string =
   let (_, hash) =
     try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
     with Not_found -> panic "No repo data for bhv."
-  in
+  in hash
+
+let bhv_cloning : string -> string -> unit = fun indent destdir ->
+  (* TODO lift? *)
+  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   cmd indent "git clone --depth 1 %a %s" repo_url "bhv" destdir;
-  cmd indent "git -C %s fetch --quiet origin %s" destdir hash;
-  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
+  cmd indent "git -C %s fetch --quiet origin %s" destdir bhv_hash;
+  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
 
 let main_job : unit -> unit = fun () ->
   line "full-build%s:" (if ref_build = None then "" else "-compare");
@@ -650,7 +659,7 @@ let main_job : unit -> unit = fun () ->
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    " "Check out reference bhv branch for cleaning" (fun () ->
-  cmd  "    " checkout_command (List.find is_bhv ref_build));
+  cmd  "    - " checkout_command (fst (find_unique_config "bhv" ref_build)));
   line "    # clean thoroughly in case the main branch introduced new vendored repos";
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
