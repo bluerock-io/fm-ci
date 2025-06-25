@@ -108,9 +108,13 @@ let main_branch : string -> string = fun project ->
   repo.Config.main_branch
 
 let gitlab_repo_base_url token =
-  Printf.sprintf
-    "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems"
-    token
+  (* Only for use during testing! *)
+  if token = "FAKE_TOKEN" then
+    "git@gitlab.com:bedrocksystems"
+  else
+    Printf.sprintf
+      "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems"
+      token
 
 let repo_url token name =
   let base = gitlab_repo_base_url token in
