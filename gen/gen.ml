@@ -385,27 +385,25 @@ let _ =
 let build_dir = "/tmp/build-dir"
 
 type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
-(* line1 and line2 will always be the same argument but OCaml's type system is
-   not strong enough to allow using the same variable here because line is
-   applied to different formats. *)
-let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_channel, unit) format -> 'b) : sect =
+let mk_sect oc : sect =
   let fresh_name =
     let counter = ref 0 in
     fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
   in
   fun spaces header ?(collapsed=true) cmd ->
+  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   let name = fresh_name () in
   (* magic strings taken from
       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
       on 2024/08/06 *)
   if collapsed then
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
+    line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
       spaces name header
   else
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
+    line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
       spaces name header;
   cmd ();
-  line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+  line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     spaces name
 
 let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
@@ -421,7 +419,7 @@ module Output (C : CHANNEL) = struct
 include C
 
 let line fmt = Printf.fprintf oc (fmt ^^ "\n")
-let sect : sect = mk_sect line line
+let sect : sect = mk_sect oc
 let cmd indent f = f indent
 
 let output_static : unit -> unit = fun () ->
