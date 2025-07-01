@@ -384,14 +384,26 @@ let _ =
 (** Location of the bhv checkout in CI builds. *)
 let build_dir = "/tmp/build-dir"
 
-type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
-let mk_sect oc : sect =
+let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
+
+let repo_url oc name =
+  Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
+
+module type CHANNEL = sig
+  val oc : Out_channel.t
+end
+
+module Output (C : CHANNEL) = struct
+include C
+
+let line fmt = Printf.fprintf oc (fmt ^^ "\n")
+
+let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
   let fresh_name =
     let counter = ref 0 in
     fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
   in
   fun spaces header ?(collapsed=true) cmd ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   let name = fresh_name () in
   (* magic strings taken from
       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
@@ -406,20 +418,6 @@ let mk_sect oc : sect =
   line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     spaces name
 
-let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
-
-let repo_url oc name =
-  Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
-
-module type CHANNEL = sig
-  val oc : Out_channel.t
-end
-
-module Output (C : CHANNEL) = struct
-include C
-
-let line fmt = Printf.fprintf oc (fmt ^^ "\n")
-let sect : sect = mk_sect oc
 let cmd indent f = f indent
 
 let output_static : unit -> unit = fun () ->
