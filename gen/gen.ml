@@ -191,7 +191,6 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
   let Config.{gitlab; name; main_branch; vendored; _} = repo in
   (* If triggered from [repo], commit hash from the initial trigger. *)
   let trigger_commit_hash =
-    if trigger_is_fm_ci then None else
     if gitlab <> trigger.Info.project_name then None else
     Some(trigger.Info.commit_sha)
   in
