@@ -1097,7 +1097,7 @@ let opam_install_job : unit -> unit = fun () ->
     end else
       line "    - opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' | awk '{print $1}')"
   end else begin
-    line "    - true";
+    line "    - exit 0";
   end
 
 let skip_proof_job : unit -> unit = fun () ->
