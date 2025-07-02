@@ -1069,11 +1069,12 @@ let opam_install_job : unit -> unit = fun () ->
   line "  script:";
   if do_opam then begin
     line "    # Print environment for debug.";
-    line "    - env";
+    sect "    " "Environment" (fun () ->
+    line "    - env");
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
-    line "    - time make -j ${NJOBS} init";
-    line "    - make dump_repos_info";
+    sect "    " "Initialize bhv" (fun () ->
+    line "    - time make -j ${NJOBS} init");
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
