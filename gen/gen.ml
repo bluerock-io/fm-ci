@@ -205,14 +205,14 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
     let target_branch = branch_hash main_branch in
     (main_branch, {target_branch; mr_branch = None; merge_base = None})
   in
-  match (mr, same_branch, trigger_commit_hash) with
-  | (None   , _           , Some(hash)) ->
+  match (mr, trigger_commit_hash, same_branch) with
+  | (None   , Some(hash), _           ) ->
       (* Push pipeline (to main) and triggering repo: use trigger hash. *)
       (main_branch, {target_branch=hash; mr_branch=None; merge_base=None})
-  | (None   , _           , None      ) ->
+  | (None   , None      , _           ) ->
       (* Push pipeline (to main) and not triggering repo: use main hash. *)
       fallback_to_main ()
-  | (Some(_), _           , Some(hash)) ->
+  | (Some(_), Some(hash), _           ) ->
       (* MR pipeline and triggering repo: use trigger hash for MR branch. *)
       let target_branch_name =
         match target_branch with
@@ -227,10 +227,10 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
         Option.map merge_base mr_branch
       in
       (target_branch_name, {target_branch; mr_branch; merge_base})
-  | (Some(_), None        , None      ) ->
+  | (Some(_), None      , None        ) ->
       (* MR pipeline, not triggering repo, no CI::same-branch. *)
       fallback_to_main ()
-  | (Some(_), Some(branch), None      ) ->
+  | (Some(_), None      , Some(branch)) ->
       (* MR pipeline, not triggering repo, CI::same-branch. *)
       match rev_parse repo branch with
       | None                      -> fallback_to_main () (* No branch. *)
