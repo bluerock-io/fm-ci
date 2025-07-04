@@ -205,6 +205,10 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
     let target_branch = branch_hash main_branch in
     (main_branch, {target_branch; mr_branch = None; merge_base = None})
   in
+  let merge_base target_branch hash =
+    if vendored then None else
+    Some (merge_base repo target_branch hash)
+  in
   match (mr, trigger_commit_hash, same_branch) with
   | (None   , Some(hash), _           ) ->
       (* Push pipeline (to main) and triggering repo: use trigger hash. *)
@@ -215,17 +219,11 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
   | (Some(_), Some(hash), _           ) ->
       (* MR pipeline and triggering repo: use trigger hash for MR branch. *)
       let target_branch_name =
-        match target_branch with
-        | None         -> main_branch
-        | Some(branch) -> branch
+        Option.value target_branch ~default:main_branch
       in
       let target_branch = branch_hash target_branch_name in
-      let mr_branch = Some(hash) in
-      let merge_base =
-        if vendored then None else
-        let merge_base hash = merge_base repo target_branch hash in
-        Option.map merge_base mr_branch
-      in
+      let mr_branch = Some hash in
+      let merge_base = merge_base target_branch hash in
       (target_branch_name, {target_branch; mr_branch; merge_base})
   | (Some(_), None      , None        ) ->
       (* MR pipeline, not triggering repo, no CI::same-branch. *)
@@ -247,10 +245,7 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
             | Some(hash) -> (target, hash)
             | None       -> (main_branch, branch_hash main_branch)
       in
-      let merge_base =
-        if vendored then None else
-        Some(merge_base repo target_branch branch)
-      in
+      let merge_base = merge_base target_branch branch in
       (target_branch_name, {target_branch; mr_branch; merge_base})
 
 (** Extended version of [repos] with the target branch name and hashes. *)
