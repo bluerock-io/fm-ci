@@ -1,0 +1,28 @@
+# Only used by ./test_gen.sh, see there for docs.
+
+[versions]
+image = "2025-06-05"
+main_llvm = 19
+
+[repo.fm-ci]
+
+[repo.stdpp]
+branch = "br-master"
+deps = ["fm-ci"]
+vendored = true
+
+[repo.cpp2v-core]
+gitlab = "cpp2v-core"
+branch = "master"
+deps = ["fm-ci", "stdpp"]
+
+[repo.bhv]
+gitlab = "bhv"
+path = "."
+deps = [ "fm-ci", "stdpp", "cpp2v-core" ]
+
+[repo.NOVA]
+gitlab = "NOVA"
+path = "./NOVA"
+branch = "proof"
+deps = [ "fm-ci", "stdpp", "cpp2v-core" ]

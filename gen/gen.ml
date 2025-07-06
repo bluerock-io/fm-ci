@@ -65,6 +65,9 @@ let _ =
 
 (** Information about the originating MR, if any. *)
 let mr = Info.get_mr ()
+let skip_proofs =
+  match mr with None -> false | Some(mr) ->
+  List.mem "CI-skip-proofs" mr.Info.mr_labels
 
 let _ =
   (* Output info: MR information. *)
@@ -104,16 +107,27 @@ let main_branch : string -> string = fun project ->
   in
   repo.Config.main_branch
 
+let gitlab_repo_base_url token =
+  (* Only for use during testing! *)
+  if token = "FAKE_TOKEN" then
+    "git@gitlab.com:bedrocksystems"
+  else
+    Printf.sprintf
+      "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems"
+      token
+
+let repo_url token name =
+  let base = gitlab_repo_base_url token in
+  Printf.sprintf
+    "%s/%s.git"
+    base name
+
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
     thunk is returned, and it should be run to wait for the process. The clone
     that is created is put in [repos_destdir]. *)
 let lightweight_clone : Config.repo -> unit Thunk.t = fun repo ->
   let name = repo.Config.gitlab in
-  let url =
-    Printf.sprintf
-      "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems/%s.git"
-      token name
-  in
+  let url = repo_url token name in
   let cmd =
     Printf.sprintf
       "git clone --no-checkout --filter=tree:0 --quiet %s %s/%s"
@@ -191,7 +205,6 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
   let Config.{gitlab; name; main_branch; vendored; _} = repo in
   (* If triggered from [repo], commit hash from the initial trigger. *)
   let trigger_commit_hash =
-    if trigger_is_fm_ci then None else
     if gitlab <> trigger.Info.project_name then None else
     Some(trigger.Info.commit_sha)
   in
@@ -203,32 +216,30 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
     let target_branch = branch_hash main_branch in
     (main_branch, {target_branch; mr_branch = None; merge_base = None})
   in
-  match (mr, same_branch, trigger_commit_hash) with
-  | (None   , _           , Some(hash)) ->
+  let merge_base target_branch hash =
+    if vendored then None else
+    Some (merge_base repo target_branch hash)
+  in
+  match (mr, trigger_commit_hash, same_branch) with
+  | (None   , Some(hash), _           ) ->
       (* Push pipeline (to main) and triggering repo: use trigger hash. *)
       (main_branch, {target_branch=hash; mr_branch=None; merge_base=None})
-  | (None   , _           , None      ) ->
+  | (None   , None      , _           ) ->
       (* Push pipeline (to main) and not triggering repo: use main hash. *)
       fallback_to_main ()
-  | (Some(_), _           , Some(hash)) ->
+  | (Some(_), Some(hash), _           ) ->
       (* MR pipeline and triggering repo: use trigger hash for MR branch. *)
       let target_branch_name =
-        match target_branch with
-        | None         -> main_branch
-        | Some(branch) -> branch
+        Option.value target_branch ~default:main_branch
       in
       let target_branch = branch_hash target_branch_name in
-      let mr_branch = Some(hash) in
-      let merge_base =
-        if vendored then None else
-        let merge_base hash = merge_base repo target_branch hash in
-        Option.map merge_base mr_branch
-      in
+      let mr_branch = Some hash in
+      let merge_base = merge_base target_branch hash in
       (target_branch_name, {target_branch; mr_branch; merge_base})
-  | (Some(_), None        , None      ) ->
+  | (Some(_), None      , None        ) ->
       (* MR pipeline, not triggering repo, no CI::same-branch. *)
       fallback_to_main ()
-  | (Some(_), Some(branch), None      ) ->
+  | (Some(_), None      , Some(branch)) ->
       (* MR pipeline, not triggering repo, CI::same-branch. *)
       match rev_parse repo branch with
       | None                      -> fallback_to_main () (* No branch. *)
@@ -245,10 +256,7 @@ let repo_hashes : Config.repo -> string * hashes = fun repo ->
             | Some(hash) -> (target, hash)
             | None       -> (main_branch, branch_hash main_branch)
       in
-      let merge_base =
-        if vendored then None else
-        Some(merge_base repo target_branch branch)
-      in
+      let merge_base = merge_base target_branch branch in
       (target_branch_name, {target_branch; mr_branch; merge_base})
 
 (** Extended version of [repos] with the target branch name and hashes. *)
@@ -382,35 +390,6 @@ let _ =
 (** Location of the bhv checkout in CI builds. *)
 let build_dir = "/tmp/build-dir"
 
-type sect = string -> string -> ?collapsed:bool -> (unit -> unit) -> unit
-(* line1 and line2 will always be the same argument but OCaml's type system is
-   not strong enough to allow using the same variable here because line is
-   applied to different formats. *)
-let mk_sect (line1 : ('a, out_channel, unit) format -> 'a) (line2 : ('b, out_channel, unit) format -> 'b) : sect =
-  let fresh_name =
-    let counter = ref 0 in
-    fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
-  in
-  fun spaces header ?(collapsed=true) cmd ->
-  let name = fresh_name () in
-  (* magic strings taken from
-      https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
-      on 2024/08/06 *)
-  if collapsed then
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
-      spaces name header
-  else
-    line1 {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
-      spaces name header;
-  cmd ();
-  line2 {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
-    spaces name
-
-let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
-
-let repo_url oc name =
-  Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
-
 module type CHANNEL = sig
   val oc : Out_channel.t
 end
@@ -419,7 +398,24 @@ module Output (C : CHANNEL) = struct
 include C
 
 let line fmt = Printf.fprintf oc (fmt ^^ "\n")
-let sect : sect = mk_sect line line
+
+let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
+  let fresh_name =
+    let counter = ref 0 in
+    fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
+  in
+  fun indent header ?(collapsed=true) cmd ->
+  let name = fresh_name () in
+  (* magic strings taken from
+      https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
+      on 2024/08/06 *)
+  let maybe_collapse = if collapsed then "[collapsed=true]" else "" in
+  line {|%secho -e "\e[0Ksection_start:`date +%%s`:%s%s\r\e[0K%s"|}
+    indent name maybe_collapse header;
+  cmd ();
+  line {|%secho -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+    indent name
+
 let cmd indent f = f indent
 
 let output_static : unit -> unit = fun () ->
@@ -431,14 +427,18 @@ let output_static : unit -> unit = fun () ->
   line ""
 
 let init_command indent =
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
   cmd  indent "time make -j ${NJOBS} init")
 
-let is_bhv (repo, _) = String.equal repo.Config.name "bhv"
+let find_unique_config = fun name configs ->
+  let is_match (repo, _) = String.equal repo.Config.name name in
+  let (config, rest) = List.partition is_match configs in
+  let config = match config with [config] -> config | _ -> assert false in
+  (config, rest)
 
 let checkout_command indent (repo, hash)  =
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
   cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
@@ -446,11 +446,10 @@ let checkout_command indent (repo, hash)  =
 let checkout_commands indent config =
   (* We must checkout bhv first to make sure we can run init so that the
      directories of all other repos are available. *)
-  let (bhv, config) = List.partition is_bhv config in
-  let bhv = match bhv with [bhv] -> bhv | _ -> assert false in
+  let (bhv, rest) = find_unique_config "bhv" config in
   checkout_command indent bhv;
   init_command indent;
-  List.iter (checkout_command indent) config
+  List.iter (checkout_command indent) rest
 
 module Checkout : sig
   val make : name:string -> (Config.repo * string) list -> unit
@@ -463,7 +462,7 @@ end = struct
   let make ~name config =
     line "%a:" template name;
     line "  script:";
-    cmd  "  " checkout_commands config;
+    cmd  "  - " checkout_commands config;
     assert (not @@ List.exists (String.equal name) !used);
     used := name :: !used
 
@@ -477,12 +476,12 @@ let artifacts_url =
   Printf.sprintf "%s/jobs/${CI_JOB_ID}/artifacts" base
 
 (** The Docker {[image]} name must include the registry. *)
-let common : image:string -> dune_cache:bool -> unit =
-    fun ~image ~dune_cache ->
+let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
+    fun ~runner_tag ~image ~dune_cache ->
   let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
   line "  image: %s" image;
   line "  tags:";
-  line "    - fm.nfs";
+  line "    - %s" runner_tag;
   line "  variables:";
   line "    CLICOLOR: 1";
   line "    GNUMAKEFLAGS: --no-print-directory";
@@ -499,7 +498,7 @@ let common : image:string -> dune_cache:bool -> unit =
   line "    # Speed up [make init]";
   line "    BRASS_aarch64: 'off'";
   line "    BRASS_x86_64: 'off'";
-  line "    GITLAB_URL: %s/bedrocksystems/" gitlab_url;
+  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "  retry:";
   line "    max: 1";
   line "    when:";
@@ -509,28 +508,34 @@ let common : image:string -> dune_cache:bool -> unit =
   line "      - scheduler_failure";
   line "      - stale_schedule"
 
-let bhv_cloning : string -> string -> unit = fun indent destdir ->
-  (* TODO lift? *)
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+let common : image:string -> dune_cache:bool -> unit =
+    fun ~image ~dune_cache ->
+  gen_common ~runner_tag:"fm.nfs" ~image ~dune_cache
+
+let bhv_hash : string =
   let (_, hash) =
     try List.find (fun (r, _) -> r.Config.name = "bhv") main_build
     with Not_found -> panic "No repo data for bhv."
-  in
-  cmd indent "git clone --depth 1 %a %s" repo_url "bhv" destdir;
-  cmd indent "git -C %s fetch --quiet origin %s" destdir hash;
-  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir hash
+  in hash
+
+let bhv_cloning : string -> string -> unit = fun indent destdir ->
+  (* TODO lift? *)
+  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  cmd indent "git clone --depth 1 %s %s" (repo_url "${CI_JOB_TOKEN}" "bhv") destdir;
+  cmd indent "git -C %s fetch --quiet origin %s" destdir bhv_hash;
+  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
 
 let main_job : unit -> unit = fun () ->
   line "full-build%s:" (if ref_build = None then "" else "-compare");
   common ~image:(with_registry main_image) ~dune_cache:(full_timing = `No);
   line "  script:";
   line "    # Print environment for debug.";
-  sect "    " "Environment" (fun () ->
+  sect "    - " "Environment" (fun () ->
   line "    - env");
   line "    # Initialize a bhv checkout.";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  sect "    " "Initialize bhv" (fun () ->
+  sect "    - " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make dump_repos_info";
   line "    # Create Directory structure for dune";
@@ -545,17 +550,17 @@ let main_job : unit -> unit = fun () ->
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
   line "    # Install the python deps.";
-  sect "    " "Install dependencies" (fun () ->
+  sect "    - " "Install dependencies" (fun () ->
   line "    - pip3 install -r python_requirements.txt");
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
-  sect "    " "Check out main branches" (fun () ->
+  sect "    - " "Check out main branches" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
   line "    - rm -rf %s" failure_file;
-  sect "    " "Build ASTs" (fun () ->
+  sect "    - " "Build ASTs" (fun () ->
   line "    - (./fm-build.py -b -j${NJOBS} @ast || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE AST STAGE\"))"
                 failure_file);
@@ -570,7 +575,7 @@ let main_job : unit -> unit = fun () ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
-  sect "    " "Build ASTs" (fun () ->
+  sect "    - " "Build ASTs" (fun () ->
   line "    - (dune build @ast -j ${NJOBS} || (touch %s; \
                 echo \"MAIN BUILD FAILED AT THE SECOND AST STAGE\"))"
                 failure_file);
@@ -600,7 +605,7 @@ let main_job : unit -> unit = fun () ->
   line "    - du -hc $(find _build -type f -name \"*.glob\") | tail -n 1";
   line "    # Compute FM stats.";
   line "    - mkdir -p $CI_PROJECT_DIR/fm-stats/_build/default/apps/vswitch";
-  sect "    " "stash.sh (all)" (fun () ->
+  sect "    - " "stash.sh (all)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default /dev/null";
   line "    - ./support/fm/stats2json.py -g . -i \
                 /tmp/_tmp_build-dir_full_spec_names.stats \
@@ -610,7 +615,7 @@ let main_job : unit -> unit = fun () ->
   line "    - cp /tmp/*.stats $CI_PROJECT_DIR/fm-stats/_build/default";
   line "    - cp /tmp/*.json $CI_PROJECT_DIR/fm-stats/_build/default";
   line "    - rm /tmp/*.stats /tmp/*.json");
-  sect "    " "stash.sh (vswitch)" (fun () ->
+  sect "    - " "stash.sh (vswitch)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default/apps/vswitch \
                 _build/default/zeta";
   line "    - ./support/fm/stats.sh -v _build/default/apps/vswitch \
@@ -622,7 +627,7 @@ let main_job : unit -> unit = fun () ->
   line "    - find _build/ -name '*.vo'| sort | xargs md5sum \
                 > $CI_PROJECT_DIR/md5sums.txt";
   line "    - dune exec -- globfs.extract-all ${NJOBS} _build/default";
-  sect "    " "Generate code quality report" (fun () ->
+  sect "    - " "Generate code quality report" (fun () ->
   line "    - (cd _build/default; dune exec -- coqc-perf.report .) | \
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
@@ -650,16 +655,16 @@ let main_job : unit -> unit = fun () ->
   (* Checkout the commit hashes for the reference build, and build. *)
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out reference bhv branch for cleaning" (fun () ->
-  cmd  "    " checkout_command (List.find is_bhv ref_build));
+  sect "    - " "Check out reference bhv branch for cleaning" (fun () ->
+  cmd  "    - " checkout_command (fst (find_unique_config "bhv" ref_build)));
   line "    # clean thoroughly in case the main branch introduced new vendored repos";
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out all reference branches" (fun () ->
+  sect "    - " "Check out all reference branches" (fun () ->
   cmd  "    " Checkout.use_script ~name:"ref");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
-  sect "    " "Build reference ASTs" (fun () ->
+  sect "    - " "Build reference ASTs" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS} @ast");
   line "    - checksum_asts";
   line "    - cp ast_md5sums.txt $CI_PROJECT_DIR/ast_md5sums_ref.txt";
@@ -667,7 +672,7 @@ let main_job : unit -> unit = fun () ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
-  sect "    " "Build ASTs (reference)" (fun () ->
+  sect "    - " "Build ASTs (reference)" (fun () ->
   line "    - dune build @ast -j ${NJOBS}");
   line "    - checksum_asts";
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
@@ -700,9 +705,9 @@ let main_job : unit -> unit = fun () ->
   (* Checkout the commit hashes for the main build again, and compare perf. *)
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out main branches (again)" (fun () ->
+  sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
-  sect "    " "Initialize bhv" (fun () ->
+  sect "    - " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
@@ -1052,7 +1057,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
-  sect "    " "Initialize checkout" (fun () ->
+  sect "    - " "Initialize checkout" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
@@ -1062,18 +1067,17 @@ let opam_install_job : unit -> unit = fun () ->
   line "  script:";
   if do_opam then begin
     line "    # Print environment for debug.";
-    line "    - env";
+    sect "    - " "Environment" (fun () ->
+    line "    - env");
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
-    line "    - time make -j ${NJOBS} init";
-    line "    - make dump_repos_info";
+    sect "    - " "Initialize bhv" (fun () ->
+    line "    - time make -j ${NJOBS} init");
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
     line "    - ulimit -S -s 32768";
     line "    - make -C fmdeps/cpp2v ast-prepare";
-    (* sect "    " "Initialize checkout" (fun () ->
-    line "    - ./fm-build.py -b -j${NJOBS}"); *)
     (* XXX
     Everything above is duplicated from fm_docs_job etc.,
     and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
@@ -1089,8 +1093,18 @@ let opam_install_job : unit -> unit = fun () ->
     end else
       line "    - opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' | awk '{print $1}')"
   end else begin
-    line "    - true";
+    line "    - exit 0";
   end
+
+let skip_proof_job : unit -> unit = fun () ->
+  line "skip-proof-job:";
+  line "  tags:";
+  line "    - fm.nfs";
+  line "  image: %s" (with_registry main_image);
+  line "  script:";
+  line "    - echo \"Skipping build as requested via CI-skip-proof label.\"";
+  line "    - exit 1";
+  ()
 
 let output_config : unit -> unit = fun () ->
   (* Static header, with workflow config. *)
@@ -1103,8 +1117,9 @@ let output_config : unit -> unit = fun () ->
     Checkout.make ~name:"ref" ref_build
   end;
 
+  if skip_proofs then skip_proof_job ();
   (* Main bhv build with performance comparison support. *)
-  if not do_full_opam then begin
+  if not skip_proofs && not do_full_opam then begin
     main_job ();
     (* Stop here if we only want the full job. *)
     match trigger.only_full_build with true -> () | false ->
@@ -1119,9 +1134,9 @@ let output_config : unit -> unit = fun () ->
       fm_docs_job ()
     end
   end;
-  opam_install_job ();
+  if not skip_proofs then opam_install_job ();
   (* Extra cpp2v-core builds. *)
-  if not do_full_opam then begin
+  if not skip_proofs && not do_full_opam then begin
     if needs_full_build "cpp2v-core" then begin
       cpp2v_core_llvm_job 18;
       cpp2v_core_llvm_job 20;

@@ -1,0 +1,6 @@
+(env
+ (_
+  (flags :standard
+   ; -w -32 ; disable unused-value warning
+   ; ^^ comment back in during development/testing
+   )))
