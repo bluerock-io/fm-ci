@@ -65,9 +65,6 @@ let _ =
 
 (** Information about the originating MR, if any. *)
 let mr = Info.get_mr ()
-let skip_proofs =
-  match mr with None -> false | Some(mr) ->
-  List.mem "CI-skip-proofs" mr.Info.mr_labels
 
 let _ =
   (* Output info: MR information. *)
@@ -349,6 +346,10 @@ let _ =
   let print_info repo = perr " - %s" repo.Config.name in
   List.iter print_info repos_needing_full_build
 
+let skip_proofs =
+  match mr with None -> false | Some(mr) ->
+  List.mem "CI-skip-proofs" mr.Info.mr_labels
+
 (** Full timing mode for BHV. *)
 let full_timing : [`No | `Partial | `Full] =
   match mr with
@@ -371,14 +372,16 @@ let do_opam : bool =
   | Some(mr) ->
     not (List.mem "CI-skip-opam" mr.Info.mr_labels)
 
-let do_full_opam : bool =
-  match Sys.getenv_opt "FM_CI_FULL_OPAM" with
+let get_env_bool name =
+  match Sys.getenv_opt name with
   | None      -> false
   | Some("0") -> false
   | Some("1") -> true
   | Some(v  ) ->
-    perr "Warning: Invalid value for FM_CI_FULL_OPAM: %S (expected unset, 0 or 1)." v;
+    perr "Warning: Invalid value for %s: %S (expected unset, 0 or 1)." name v;
     false
+
+let do_full_opam : bool = get_env_bool "FM_CI_FULL_OPAM"
 
 let _ =
   (* Output info: full timing mode. *)
@@ -1061,7 +1064,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
-let opam_install_job : unit -> unit = fun () ->
+let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
   line "opam-install-build:";
   common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
@@ -1117,33 +1120,34 @@ let output_config : unit -> unit = fun () ->
     Checkout.make ~name:"ref" ref_build
   end;
 
-  if skip_proofs then skip_proof_job ();
-  (* Main bhv build with performance comparison support. *)
-  if not skip_proofs && not do_full_opam then begin
-    main_job ();
-    (* Stop here if we only want the full job. *)
-    match trigger.only_full_build with true -> () | false ->
-    (* Proof tidy job. *)
-    proof_tidy ();
-    (* Triggered NOVA build.
-      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-    (* fm-docs build *)
-    if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
-      fm_docs_job ()
+  if skip_proofs then
+    skip_proof_job ()
+  else begin
+    opam_install_job do_opam do_full_opam ();
+    if not do_full_opam then begin
+      (* Main bhv build with performance comparison support. *)
+      main_job ();
+      (* Stop here if we only want the full job. *)
+      match trigger.only_full_build with true -> () | false ->
+      (* Proof tidy job. *)
+      proof_tidy ();
+      (* Triggered NOVA build.
+        NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+        trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+      if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
+      (* fm-docs build *)
+      if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+        fm_docs_job ()
+      end;
+      (* Extra cpp2v-core builds. *)
+      if needs_full_build "cpp2v-core" then begin
+        cpp2v_core_llvm_job 18;
+        cpp2v_core_llvm_job 20;
+        (*cpp2v_core_public_job oc "16";*)
+        cpp2v_core_pages_job ();
+      end
     end
   end;
-  if not skip_proofs then opam_install_job ();
-  (* Extra cpp2v-core builds. *)
-  if not skip_proofs && not do_full_opam then begin
-    if needs_full_build "cpp2v-core" then begin
-      cpp2v_core_llvm_job 18;
-      cpp2v_core_llvm_job 20;
-      (*cpp2v_core_public_job oc "16";*)
-      cpp2v_core_pages_job ();
-    end
-  end
 
 end
 
