@@ -404,10 +404,10 @@ let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
       on 2024/08/06 *)
   let maybe_collapse = if collapsed then "[collapsed=true]" else "" in
-  line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s%s\r\e[0K%s"|}
+  line {|%secho -e "\e[0Ksection_start:`date +%%s`:%s%s\r\e[0K%s"|}
     indent name maybe_collapse header;
   cmd ();
-  line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
+  line {|%secho -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     indent name
 
 let cmd indent f = f indent
@@ -524,12 +524,12 @@ let main_job : unit -> unit = fun () ->
   common ~image:(with_registry main_image) ~dune_cache:(full_timing = `No);
   line "  script:";
   line "    # Print environment for debug.";
-  sect "    " "Environment" (fun () ->
+  sect "    - " "Environment" (fun () ->
   line "    - env");
   line "    # Initialize a bhv checkout.";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  sect "    " "Initialize bhv" (fun () ->
+  sect "    - " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make dump_repos_info";
   line "    # Create Directory structure for dune";
@@ -544,17 +544,17 @@ let main_job : unit -> unit = fun () ->
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
   line "    # Install the python deps.";
-  sect "    " "Install dependencies" (fun () ->
+  sect "    - " "Install dependencies" (fun () ->
   line "    - pip3 install -r python_requirements.txt");
   (* Checkout the commit hashes for the main build, and build. *)
   line "    #### MAIN BUILD ####";
-  sect "    " "Check out main branches" (fun () ->
+  sect "    - " "Check out main branches" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    # ASTs";
   let failure_file = "/tmp/main_build_failure" in
   line "    - rm -rf %s" failure_file;
-  sect "    " "Build ASTs" (fun () ->
+  sect "    - " "Build ASTs" (fun () ->
   line "    - (./fm-build.py -b -j${NJOBS} @ast || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE AST STAGE\"))"
                 failure_file);
@@ -569,7 +569,7 @@ let main_job : unit -> unit = fun () ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
-  sect "    " "Build ASTs" (fun () ->
+  sect "    - " "Build ASTs" (fun () ->
   line "    - (dune build @ast -j ${NJOBS} || (touch %s; \
                 echo \"MAIN BUILD FAILED AT THE SECOND AST STAGE\"))"
                 failure_file);
@@ -599,7 +599,7 @@ let main_job : unit -> unit = fun () ->
   line "    - du -hc $(find _build -type f -name \"*.glob\") | tail -n 1";
   line "    # Compute FM stats.";
   line "    - mkdir -p $CI_PROJECT_DIR/fm-stats/_build/default/apps/vswitch";
-  sect "    " "stash.sh (all)" (fun () ->
+  sect "    - " "stash.sh (all)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default /dev/null";
   line "    - ./support/fm/stats2json.py -g . -i \
                 /tmp/_tmp_build-dir_full_spec_names.stats \
@@ -609,7 +609,7 @@ let main_job : unit -> unit = fun () ->
   line "    - cp /tmp/*.stats $CI_PROJECT_DIR/fm-stats/_build/default";
   line "    - cp /tmp/*.json $CI_PROJECT_DIR/fm-stats/_build/default";
   line "    - rm /tmp/*.stats /tmp/*.json");
-  sect "    " "stash.sh (vswitch)" (fun () ->
+  sect "    - " "stash.sh (vswitch)" (fun () ->
   line "    - ./support/fm/stats.sh _build/default/apps/vswitch \
                 _build/default/zeta";
   line "    - ./support/fm/stats.sh -v _build/default/apps/vswitch \
@@ -621,7 +621,7 @@ let main_job : unit -> unit = fun () ->
   line "    - find _build/ -name '*.vo'| sort | xargs md5sum \
                 > $CI_PROJECT_DIR/md5sums.txt";
   line "    - dune exec -- globfs.extract-all ${NJOBS} _build/default";
-  sect "    " "Generate code quality report" (fun () ->
+  sect "    - " "Generate code quality report" (fun () ->
   line "    - (cd _build/default; dune exec -- coqc-perf.report .) | \
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
@@ -649,16 +649,16 @@ let main_job : unit -> unit = fun () ->
   (* Checkout the commit hashes for the reference build, and build. *)
   line "    #### REF BUILD ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out reference bhv branch for cleaning" (fun () ->
+  sect "    - " "Check out reference bhv branch for cleaning" (fun () ->
   cmd  "    - " checkout_command (fst (find_unique_config "bhv" ref_build)));
   line "    # clean thoroughly in case the main branch introduced new vendored repos";
   line "    - git clean -ffxd";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out all reference branches" (fun () ->
+  sect "    - " "Check out all reference branches" (fun () ->
   cmd  "    " Checkout.use_script ~name:"ref");
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm_ref.txt";
   line "    # ASTs";
-  sect "    " "Build reference ASTs" (fun () ->
+  sect "    - " "Build reference ASTs" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS} @ast");
   line "    - checksum_asts";
   line "    - cp ast_md5sums.txt $CI_PROJECT_DIR/ast_md5sums_ref.txt";
@@ -666,7 +666,7 @@ let main_job : unit -> unit = fun () ->
   line "    # FM-3547: check AST generation is reproducible.";
   line "    - mv ast_md5sums.txt ast_md5sums_v1.txt";
   line "    - dune clean";
-  sect "    " "Build ASTs (reference)" (fun () ->
+  sect "    - " "Build ASTs (reference)" (fun () ->
   line "    - dune build @ast -j ${NJOBS}");
   line "    - checksum_asts";
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
@@ -699,9 +699,9 @@ let main_job : unit -> unit = fun () ->
   (* Checkout the commit hashes for the main build again, and compare perf. *)
   line "    #### PERF ANALYSIS ####";
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
-  sect "    " "Check out main branches (again)" (fun () ->
+  sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
-  sect "    " "Initialize bhv" (fun () ->
+  sect "    - " "Initialize bhv" (fun () ->
   line "    - time make -j ${NJOBS} init");
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
@@ -1051,7 +1051,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
   line "    - ulimit -S -s 32768";
-  sect "    " "Initialize checkout" (fun () ->
+  sect "    - " "Initialize checkout" (fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
@@ -1061,11 +1061,11 @@ let opam_install_job : unit -> unit = fun () ->
   line "  script:";
   if do_opam then begin
     line "    # Print environment for debug.";
-    sect "    " "Environment" (fun () ->
+    sect "    - " "Environment" (fun () ->
     line "    - env");
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
-    sect "    " "Initialize bhv" (fun () ->
+    sect "    - " "Initialize bhv" (fun () ->
     line "    - time make -j ${NJOBS} init");
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
