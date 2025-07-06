@@ -1075,8 +1075,6 @@ let opam_install_job : unit -> unit = fun () ->
     line "    # Increase the stack size for large files.";
     line "    - ulimit -S -s 32768";
     line "    - make -C fmdeps/cpp2v ast-prepare";
-    (* sect "    " "Initialize checkout" (fun () ->
-    line "    - ./fm-build.py -b -j${NJOBS}"); *)
     (* XXX
     Everything above is duplicated from fm_docs_job etc.,
     and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
