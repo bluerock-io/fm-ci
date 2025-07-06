@@ -398,20 +398,20 @@ let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
     let counter = ref 0 in
     fun () -> incr counter; Printf.sprintf "section_%i" (!counter)
   in
-  fun spaces header ?(collapsed=true) cmd ->
+  fun indent header ?(collapsed=true) cmd ->
   let name = fresh_name () in
   (* magic strings taken from
       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
       on 2024/08/06 *)
   if collapsed then
     line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
-      spaces name header
+      indent name header
   else
     line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
-      spaces name header;
+      indent name header;
   cmd ();
   line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
-    spaces name
+    indent name
 
 let cmd indent f = f indent
 
