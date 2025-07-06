@@ -1098,7 +1098,6 @@ let opam_install_job : unit -> unit = fun () ->
 
 let skip_proof_job : unit -> unit = fun () ->
   line "skip-proof-job:";
-  line "  allow_failure: true";
   line "  tags:";
   line "    - fm.nfs";
   line "  image: %s" (with_registry main_image);
