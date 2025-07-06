@@ -403,12 +403,9 @@ let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
   (* magic strings taken from
       https://docs.gitlab.com/ee/ci/yaml/script.html#custom-collapsible-sections
       on 2024/08/06 *)
-  if collapsed then
-    line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s[collapsed=true]\r\e[0K%s"|}
-      indent name header
-  else
-    line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s\r\e[0K%s"|}
-      indent name header;
+  let maybe_collapse = if collapsed then "[collapsed=true]" else "" in
+  line {|%s- echo -e "\e[0Ksection_start:`date +%%s`:%s%s\r\e[0K%s"|}
+    indent name maybe_collapse header;
   cmd ();
   line {|%s- echo -e "\e[0Ksection_end:`date +%%s`:%s\r\e[0K"|}
     indent name
