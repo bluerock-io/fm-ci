@@ -107,16 +107,23 @@ let main_branch : string -> string = fun project ->
   in
   repo.Config.main_branch
 
+let gitlab_repo_base_url token =
+  Printf.sprintf
+    "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems"
+    token
+
+let repo_url token name =
+  let base = gitlab_repo_base_url token in
+  Printf.sprintf
+    "%s/%s.git"
+    base name
+
 (** [lightweight_clone repo] spawns a git process to clone the given [repo]. A
     thunk is returned, and it should be run to wait for the process. The clone
     that is created is put in [repos_destdir]. *)
 let lightweight_clone : Config.repo -> unit Thunk.t = fun repo ->
   let name = repo.Config.gitlab in
-  let url =
-    Printf.sprintf
-      "https://gitlab-ci-token:%s@gitlab.com/bedrocksystems/%s.git"
-      token name
-  in
+  let url = repo_url token name in
   let cmd =
     Printf.sprintf
       "git clone --no-checkout --filter=tree:0 --quiet %s %s/%s"
@@ -379,11 +386,6 @@ let _ =
 (** Location of the bhv checkout in CI builds. *)
 let build_dir = "/tmp/build-dir"
 
-let gitlab_url = "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com"
-
-let repo_url oc name =
-  Printf.fprintf oc "%s/bedrocksystems/%s.git" gitlab_url name
-
 module type CHANNEL = sig
   val oc : Out_channel.t
 end
@@ -492,7 +494,7 @@ let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
   line "    # Speed up [make init]";
   line "    BRASS_aarch64: 'off'";
   line "    BRASS_x86_64: 'off'";
-  line "    GITLAB_URL: %s/bedrocksystems/" gitlab_url;
+  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "  retry:";
   line "    max: 1";
   line "    when:";
@@ -515,7 +517,7 @@ let bhv_hash : string =
 let bhv_cloning : string -> string -> unit = fun indent destdir ->
   (* TODO lift? *)
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
-  cmd indent "git clone --depth 1 %a %s" repo_url "bhv" destdir;
+  cmd indent "git clone --depth 1 %s %s" (repo_url "${CI_JOB_TOKEN}" "bhv") destdir;
   cmd indent "git -C %s fetch --quiet origin %s" destdir bhv_hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
 
