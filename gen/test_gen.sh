@@ -20,6 +20,8 @@ config=test_config.toml
 
 rm -rf repos/
 
+mv -f test_out.yaml test_out_old.yaml
+
 [ -z "${CI_JOB_TOKEN}" ] && CI_JOB_TOKEN=FAKE_TOKEN
 
 ORIGIN_CI_PROJECT_TITLE=BHV \
@@ -31,3 +33,5 @@ ORIGIN_CI_PROJECT_TITLE=BHV \
   ORIGIN_CI_MERGE_REQUEST_IID='' \
   dune exec --profile dev ./gen.exe "${CI_JOB_TOKEN}" ${config} test_out.yaml 2>&1 |
   tee test_output.txt
+
+diff -u test_out_old.yaml test_out.yaml
