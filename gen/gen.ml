@@ -382,6 +382,7 @@ let get_env_bool name =
     false
 
 let do_full_opam : bool = get_env_bool "FM_CI_FULL_OPAM"
+let do_docker_opam : bool = get_env_bool "FM_CI_DOCKER_OPAM"
 
 let _ =
   (* Output info: full timing mode. *)
@@ -1124,7 +1125,9 @@ let output_config : unit -> unit = fun () ->
     skip_proof_job ()
   else begin
     opam_install_job do_opam do_full_opam ();
-    if not do_full_opam then begin
+    (* This conditional is ad-hoc, but both [do_full_opam] and [do_docker_opam]
+    are only set in special scheduled pipelines that are only needed for these jobs. *)
+    if not do_full_opam && not do_docker_opam then begin
       (* Main bhv build with performance comparison support. *)
       main_job ();
       (* Stop here if we only want the full job. *)
