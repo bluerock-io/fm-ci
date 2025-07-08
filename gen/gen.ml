@@ -385,6 +385,13 @@ let do_full_opam : bool = get_env_bool "FM_CI_FULL_OPAM"
 let do_docker_opam : bool = get_env_bool "FM_CI_DOCKER_OPAM"
 
 let _ =
+  if not do_opam && (do_full_opam || do_docker_opam) then
+    panic "Inconsistent opam settings: not do_opam && (do_full_opam || do_docker_opam)
+    do_opam %b, do_full_opam %b do_docker_opam %b" do_opam do_full_opam do_docker_opam;
+  if do_full_opam && do_docker_opam then
+    panic "Inconsistent opam settings: do_full_opam && do_docker_opam"
+
+let _ =
   (* Output info: full timing mode. *)
   match full_timing with
   | `No      -> perr "Full timing for bhv: no."
