@@ -372,17 +372,9 @@ let do_opam : bool =
   | Some(mr) ->
     not (List.mem "CI-skip-opam" mr.Info.mr_labels)
 
-let get_env_bool name =
-  match Sys.getenv_opt name with
-  | None      -> false
-  | Some("0") -> false
-  | Some("1") -> true
-  | Some(v  ) ->
-    perr "Warning: Invalid value for %s: %S (expected unset, 0 or 1)." name v;
-    false
-
-let do_full_opam : bool = get_env_bool "FM_CI_FULL_OPAM"
-let do_docker_opam : bool = get_env_bool "FM_CI_DOCKER_OPAM"
+(* TODO: maybe move to fields in Info.trigger. *)
+let do_full_opam : bool = Info.getenv_bool ~default:false "FM_CI_FULL_OPAM"
+let do_docker_opam : bool = Info.getenv_bool ~default:false "FM_CI_DOCKER_OPAM"
 
 let _ =
   if not do_opam && (do_full_opam || do_docker_opam) then
