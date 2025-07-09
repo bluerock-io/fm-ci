@@ -8,6 +8,7 @@ make ast-prepare -sj${NJOBS}
 opam pin add -y -k rsync --recursive -n --with-version dev .
 
 opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' |
+  grep -E -v 'rocq-bluerock-cpp-(demo|stdlib)' |
   awk '{print $1}')
 /tmp/files/opam-clean
 
