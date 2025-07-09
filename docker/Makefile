@@ -182,7 +182,8 @@ $(RELEASE_TAG): files/fm-artifact.zip
 	@echo "[DOCKER] Building $(RELEASE_TAG)"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
 		--platform linux/amd64 \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) -f Dockerfile-release .
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
+		-f Dockerfile-artifact-release .
 .PHONY: $(RELEASE_TAG)
 
 tag-release: $(RELEASE_TAG)
