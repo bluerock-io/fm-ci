@@ -23,9 +23,10 @@ type trigger = {
 let getenv_bool : default:bool -> string -> bool = fun ~default var ->
   match Sys.getenv_opt var with
   | None                       -> default
-  | Some("false")              -> false
-  | Some("true" )              -> true
+  | Some("false") | Some("0")  -> false
+  | Some("true") | Some("1")   -> true
   | Some(s) when s = "$" ^ var -> default
+  (* ^^ result from Gitlab CI expansion *)
   | Some(s)                    -> panic "Unexpected value for %s: %S." var s
 
 let get_trigger : unit -> trigger =

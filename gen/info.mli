@@ -33,3 +33,6 @@ type mr = {
 (** [get_mr ()] constructs MR information from the environment, or returns the
     value [None] if there is no MR. *)
 val get_mr : unit -> mr option
+
+(** read environment variables passed from CI. *)
+val getenv_bool : default:bool -> string -> bool

@@ -157,6 +157,24 @@ files/fm-artifact.zip: $(HEADER_DEPS)
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
+bhv_parent=../../../..
+docker_build_folder=docker-opam-release
+
+$(bhv_parent)/$(docker_build_folder)/files/bhv.tar:
+	cd $(bhv_parent); mkdir -p $(docker_build_folder)/files; time tar cf $(docker_build_folder)/files/bhv.tar bhv/
+
+prepare-opam-release: $(bhv_parent)/$(docker_build_folder)/files/bhv.tar
+	cp -t $(bhv_parent)/$(docker_build_folder)/files files/dune-config files/LICENSE files/opam-clean
+	cp -t $(bhv_parent)/$(docker_build_folder) Dockerfile-opam-release
+
+build-opam-release: prepare-opam-release
+	cd $(bhv_parent)/$(docker_build_folder); \
+	docker buildx build \
+		-f Dockerfile-opam-release \
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
+		-t $(BR_REGISTRY):fm-opam-release \
+		.
+
 build-release: $(RELEASE_TAG)
 .PHONY: build-release
 
@@ -164,7 +182,8 @@ $(RELEASE_TAG): files/fm-artifact.zip
 	@echo "[DOCKER] Building $(RELEASE_TAG)"
 	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
 		--platform linux/amd64 \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) -f Dockerfile-release .
+		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
+		-f Dockerfile-artifact-release .
 .PHONY: $(RELEASE_TAG)
 
 tag-release: $(RELEASE_TAG)

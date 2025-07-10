@@ -168,6 +168,19 @@ The `dune` cache is trimmed by a weekly pipeline.
 
 It simply sets `FM_CI_TRIM_DUNE_CACHE=true`.
 
+### Full opam testing
+
+Another weekly pipeline uses `FM_CI_FULL_OPAM=true` to:
+- disable standard CI jobs
+- test installing and uninstalling each package in isolation.
+
+### Docker image building
+
+Another pipeline (daily/weekly?) builds the new public release docker image.
+This sets `FM_CI_DOCKER_OPAM=true` to:
+- disable standard CI jobs
+- build a Docker release image using
+
 ### Release
 
 A daily pipeline is used to release the public release docker image. This is

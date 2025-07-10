@@ -65,9 +65,6 @@ let _ =
 
 (** Information about the originating MR, if any. *)
 let mr = Info.get_mr ()
-let skip_proofs =
-  match mr with None -> false | Some(mr) ->
-  List.mem "CI-skip-proofs" mr.Info.mr_labels
 
 let _ =
   (* Output info: MR information. *)
@@ -349,6 +346,10 @@ let _ =
   let print_info repo = perr " - %s" repo.Config.name in
   List.iter print_info repos_needing_full_build
 
+let skip_proofs =
+  match mr with None -> false | Some(mr) ->
+  List.mem "CI-skip-proofs" mr.Info.mr_labels
+
 (** Full timing mode for BHV. *)
 let full_timing : [`No | `Partial | `Full] =
   match mr with
@@ -371,14 +372,16 @@ let do_opam : bool =
   | Some(mr) ->
     not (List.mem "CI-skip-opam" mr.Info.mr_labels)
 
-let do_full_opam : bool =
-  match Sys.getenv_opt "FM_CI_FULL_OPAM" with
-  | None      -> false
-  | Some("0") -> false
-  | Some("1") -> true
-  | Some(v  ) ->
-    perr "Warning: Invalid value for FM_CI_FULL_OPAM: %S (expected unset, 0 or 1)." v;
-    false
+(* TODO: maybe move to fields in Info.trigger. *)
+let do_full_opam : bool = Info.getenv_bool ~default:false "FM_CI_FULL_OPAM"
+let do_docker_opam : bool = Info.getenv_bool ~default:false "FM_CI_DOCKER_OPAM"
+
+let _ =
+  if not do_opam && (do_full_opam || do_docker_opam) then
+    panic "Inconsistent opam settings: not do_opam && (do_full_opam || do_docker_opam)
+    do_opam %b, do_full_opam %b do_docker_opam %b" do_opam do_full_opam do_docker_opam;
+  if do_full_opam && do_docker_opam then
+    panic "Inconsistent opam settings: do_full_opam && do_docker_opam"
 
 let _ =
   (* Output info: full timing mode. *)
@@ -1061,7 +1064,53 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - ./fm-build.py -b -j${NJOBS}");
   line "    - ./fmdeps/fm-docs/ci-build.sh"
 
-let opam_install_job : unit -> unit = fun () ->
+let docker_img_version = "27.3.1"
+let docker_img = Printf.sprintf "docker:%s" docker_img_version
+
+let docker_services : unit -> unit = fun () ->
+  line "  services:";
+  line "    - docker:%s-dind" docker_img_version
+
+(* XXX lens *)
+let with_bhv_path bhv_path config =
+  let open Config in
+  let ({name; gitlab; bhv_path = _; main_branch; deps; vendored}, hash) = config in
+  ({name; gitlab; bhv_path; main_branch; deps; vendored}, hash)
+
+let opam_docker_install_job : unit -> unit = fun () ->
+  let new_image_name = with_registry "fm-cibuild-latest" in
+  line "opam-docker-install-build:";
+  gen_common ~runner_tag:"fm.docker" ~image:docker_img ~dune_cache:true;
+  docker_services ();
+  line "  script:";
+  line "    # Print environment for debug.";
+  sect "    - " "Environment" (fun () ->
+  line "    - env");
+  let (fm_ci, _) = find_unique_config "fm-ci" main_build in
+  checkout_command "    - " (with_bhv_path "." fm_ci);
+  line "    - cd docker";
+  line "    - |-";
+  line "      cat > checkout_script.sh <<EOF";
+  checkout_commands "      " main_build;
+  line "      EOF";
+  line "    - cp checkout_script.sh $CI_PROJECT_DIR/checkout_script.sh";
+  line "    - cat checkout_script.sh";
+  line "    - echo \"$CI_REGISTRY_PASSWORD\" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY";
+  line "    - GIT_AUTH_TOKEN=%s docker build -f Dockerfile-checkout-opam-release \
+                --secret type=env,id=CI_JOB_TOKEN \
+                --build-arg BHV_COMMIT=%s \
+                --push \
+                -t %s ." token bhv_hash new_image_name;
+  (* line "    - docker push %s" new_image_name; *)
+  line "    - docker images";
+  line "  artifacts:";
+  line "    when: always";
+  line "    paths:";
+  line "      - checkout_script.sh";
+
+  ()
+
+let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
   line "opam-install-build:";
   common ~image:(with_registry main_image) ~dune_cache:true;
   line "  script:";
@@ -1117,33 +1166,39 @@ let output_config : unit -> unit = fun () ->
     Checkout.make ~name:"ref" ref_build
   end;
 
-  if skip_proofs then skip_proof_job ();
-  (* Main bhv build with performance comparison support. *)
-  if not skip_proofs && not do_full_opam then begin
-    main_job ();
-    (* Stop here if we only want the full job. *)
-    match trigger.only_full_build with true -> () | false ->
-    (* Proof tidy job. *)
-    proof_tidy ();
-    (* Triggered NOVA build.
-      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-    (* fm-docs build *)
-    if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
-      fm_docs_job ()
+  if skip_proofs then
+    skip_proof_job ()
+  else begin
+    if do_docker_opam then
+      opam_docker_install_job ()
+    else
+      opam_install_job do_opam do_full_opam ();
+    (* This conditional is ad-hoc, but both [do_full_opam] and [do_docker_opam]
+    are only set in special scheduled pipelines that are only needed for these jobs. *)
+    if not do_full_opam && not do_docker_opam then begin
+      (* Main bhv build with performance comparison support. *)
+      main_job ();
+      (* Stop here if we only want the full job. *)
+      match trigger.only_full_build with true -> () | false ->
+      (* Proof tidy job. *)
+      proof_tidy ();
+      (* Triggered NOVA build.
+        NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+        trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+      if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
+      (* fm-docs build *)
+      if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
+        fm_docs_job ()
+      end;
+      (* Extra cpp2v-core builds. *)
+      if needs_full_build "cpp2v-core" then begin
+        cpp2v_core_llvm_job 18;
+        cpp2v_core_llvm_job 20;
+        (*cpp2v_core_public_job oc "16";*)
+        cpp2v_core_pages_job ();
+      end
     end
   end;
-  if not skip_proofs then opam_install_job ();
-  (* Extra cpp2v-core builds. *)
-  if not skip_proofs && not do_full_opam then begin
-    if needs_full_build "cpp2v-core" then begin
-      cpp2v_core_llvm_job 18;
-      cpp2v_core_llvm_job 20;
-      (*cpp2v_core_public_job oc "16";*)
-      cpp2v_core_pages_job ();
-    end
-  end
 
 end
 

@@ -1,0 +1,18 @@
+# FROM $BASE_IMAGE
+FROM registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-default
+
+COPY --chown=coq files/dune-config /home/coq/.config/dune/config
+COPY --chown=coq files/LICENSE /home/coq/LICENSE
+
+COPY files/opam-clean /tmp/files/opam-clean
+
+RUN \
+  --mount=type=bind,target=/tmp/bhv.tar,source=files/bhv.tar \
+  cd /tmp \
+  && tar xf bhv.tar \
+  && cd /tmp/bhv \
+  && ./fmdeps/fm-ci/docker/opam_build.sh \
+  && sudo rm -rf /tmp/bhv
+
+# Can't be in the previous run command: it fails on bhv.tar
+RUN sudo rm -rf /tmp/*
