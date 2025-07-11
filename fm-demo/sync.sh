@@ -46,11 +46,12 @@ make -C ${BHV}/fmdeps/cpp2v ast-prepare -sj
 
 # Package our demos
 rsync -avc --delete --delete-excluded ${BHV}/fmdeps/cpp2v/rocq-bluerock-cpp-demo . "$@"
-rsync -avc --delete --delete-excluded --exclude theories ${BHV}/fmdeps/cpp2v/rocq-bluerock-cpp-stdlib . "$@"
+#rsync -avc --delete --delete-excluded --exclude theories ${BHV}/fmdeps/cpp2v/rocq-bluerock-cpp-stdlib . "$@"
+rsync -avc --delete --delete-excluded ${BHV}/fmdeps/cpp2v/rocq-bluerock-cpp-stdlib . "$@"
 rsync -avc --delete --delete-excluded ${BHV}/fmdeps/cpp2v/flags/ flags/ "$@"
 rsync -avc --delete --delete-excluded --exclude .git ${BHV}/fmdeps/fm-docs/ fm-docs/ "$@"
 ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-demo/proof/
-# ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-stdlib/theories/
+ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-stdlib/theories/
 ln -sf ../../cpp2v-dune-gen.sh rocq-bluerock-cpp-stdlib/tests/
 
 cat ${BHV}/fmdeps/fm-ci/fm-demo/_CoqProject.flags > _CoqProject
