@@ -23,6 +23,7 @@ shift
 }
 
 docker_name=bluerock-fm-release-${release_ver}.tar.gz
+docker_target_name=bluerock-fm-release.tar.gz
 target_dir_name=bluerock-fm-demo-${release_ver}
 target=${target_parent}/${target_dir_name}
 target_tarball=${target}.tar.gz
@@ -32,12 +33,12 @@ mkdir -p ${target}
 
 # Sync our skeleton, and preserve demos
 # Getting ${exclusions} correct is optional but reduces noise/extra work when rerunning the script
-exclusions="--exclude rocq-bluerock-cpp-demo --exclude rocq-bluerock-cpp-stdlib --exclude flags --exclude fm-docs --exclude docker --exclude ${docker_name} --exclude _build"
+exclusions="--exclude rocq-bluerock-cpp-demo --exclude rocq-bluerock-cpp-stdlib --exclude flags --exclude fm-docs --exclude docker --exclude ${docker_target_name} --exclude _build"
 rsync -avc --delete ${exclusions} $PWD/skeleton/ ${target}/ "$@"
 
-rsync -av ${docker_path}/${docker_name} ${target}/ "$@"
 
 cd ${target}
+rsync -av ${docker_path}/${docker_name} ${target}/${docker_target_name} "$@"
 
 # Regenerate dune.inc files
 make -C ${BHV}/fmdeps/cpp2v clean -sj
