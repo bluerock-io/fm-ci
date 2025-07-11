@@ -1,6 +1,9 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2025-06-05
+FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
+# We keep $(BR_IMAGE_VERSION) purely internal.
+# FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
 RELEASE_TAG ?= fm-release
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
@@ -9,6 +12,8 @@ LLVM_VERSIONS ?= 18 19 20
 LLVM_MAIN_VERSION ?= 19
 I_KNOW_WHAT_I_AM_DOING ?= no
 QUIET ?= true
+FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
+
 
 # Checking the value of I_KNOW_WHAT_I_AM_DOING.
 ifneq ($(I_KNOW_WHAT_I_AM_DOING),yes)
@@ -215,11 +220,6 @@ pull-release:
 .PHONY: pull-release
 
 PV = $(if $(shell which pv),pv,cat)
-
-# We keep $(BR_IMAGE_VERSION) purely internal.
-# FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
-FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
-FM_RELEASE_TARBALL_NAME = bluerock-fm-release-$(FM_RELEASE_FULL_VERSION)
 
 ver-release:
 	@echo $(FM_RELEASE_FULL_VERSION)
