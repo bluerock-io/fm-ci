@@ -443,7 +443,7 @@ let find_unique_config = fun name configs ->
 let checkout_command indent (repo, hash)  =
   let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
-  cmd indent "git -C %s fetch --quiet origin %s" bhv_path hash;
+  cmd indent "git -C %s fetch --depth 1 --quiet origin %s" bhv_path hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
 
 let checkout_commands indent config =
@@ -502,6 +502,7 @@ let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
   line "    BRASS_aarch64: 'off'";
   line "    BRASS_x86_64: 'off'";
   line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
+  line "    SHALLOW: 1";
   line "  retry:";
   line "    max: 1";
   line "    when:";
@@ -525,7 +526,7 @@ let bhv_cloning : string -> string -> unit = fun indent destdir ->
   (* TODO lift? *)
   let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
   cmd indent "git clone --depth 1 %s %s" (repo_url "${CI_JOB_TOKEN}" "bhv") destdir;
-  cmd indent "git -C %s fetch --quiet origin %s" destdir bhv_hash;
+  cmd indent "git -C %s fetch --depth 1 --quiet origin %s" destdir bhv_hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
 
 let main_job : unit -> unit = fun () ->
