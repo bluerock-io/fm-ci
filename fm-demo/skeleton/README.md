@@ -16,7 +16,7 @@ Contact [support@bluerock.io](mailto:support@bluerock.io).
 After extracting this file, run the following from this directory.
 
 ```sh
-docker load -i bluerock-fm-release-2025-05-08.tar.gz
+docker load -i bluerock-fm-release.tar.gz
 code . &
 ```
 
