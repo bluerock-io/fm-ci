@@ -52,7 +52,8 @@ RUN set -x \
  && opam init --bare --disable-sandboxing --shell-setup \
  && opam repo add --dont-select coq-released "https://coq.inria.fr/opam/released" \
  && opam repo add --dont-select iris-dev "git+https://gitlab.mpi-sws.org/iris/opam.git" \
- && opam switch create --empty --repositories=iris-dev,default,coq-released main \
+ && opam repo add --dont-select archive "git+https://github.com/ocaml/opam-repository-archive" \
+ && opam switch create --empty --repositories=iris-dev,default,coq-released,archive main \
  && opam update -y \
  && opam install -y /tmp/files/br-fm-deps.opam \
  && /tmp/files/opam-clean
