@@ -42,7 +42,7 @@ cd ${target}
 # Sync our skeleton, and preserve demos
 # Getting ${exclusions} correct is optional but reduces noise/extra work when rerunning the script
 exclusions="--exclude rocq-bluerock-cpp-demo --exclude rocq-bluerock-cpp-stdlib --exclude flags --exclude fm-docs --exclude docker --exclude ${docker_target_name} --exclude _build"
-rsync -avc --delete ${exclusions} ${skeleton_path}/ ${target}/ "$@"
+rsync -avc --copy-unsafe-links --delete ${exclusions} ${skeleton_path}/ ${target}/ "$@"
 
 # Package our demos
 rsync -avc --delete --delete-excluded ${BHV}/fmdeps/cpp2v/rocq-bluerock-cpp-demo . "$@"
