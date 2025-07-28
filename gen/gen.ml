@@ -635,7 +635,7 @@ let main_job : unit -> unit = fun () ->
   line "    - (cd _build/default; dune exec -- coqc-perf.report .) | \
                 tee -a coq_codeq.log";
   line "    - cat coq_codeq.log | dune exec -- coqc-perf.code-quality-report \
-                > $CI_PROJECT_DIR/gl-code-quality-report.json");
+                > $CI_PROJECT_DIR/gl-code-quality-report.json || true");
   line "    - dune exec -- coqc-perf.extract-all _build/default perf-data";
   line "    - dune exec -- hint-data.extract-all ${NJOBS} perf-data";
   line "    - du -hs _build";
