@@ -23,25 +23,6 @@ usage() {
 	exit 1
 }
 
-getSystemPaths() {
-	local args=()
-	while [[ $# -gt 0 ]]; do
-		if [[ "$1" =~ ^(-isystem)$ ]]; then
-			args+=("${BASH_REMATCH[1]}")
-			shift
-			args+=("$1")
-		elif [[ "$1" =~ ^(-internal.*system.*)$ ]]; then
-			args+=("-Xclang")
-			args+=("${BASH_REMATCH[1]}")
-			shift
-			args+=("-Xclang")
-			args+=("$1")
-		fi
-		shift
-	done
-	echo "${args[@]}"
-}
-
 outRule() {
 	local indent fullName name ext
 	indent="$1"
@@ -60,29 +41,28 @@ outRule() {
 	local names="${name}_${ext}_names.v"
 	local targ="${module} ${names}"
 	local clang_options=""
+	local universe=""
 	if [ "$system" = 1 ]; then
-		clang_options=$(clang++ -### $fullName 2>&1 | grep -Fv '(in-process)' | sed '5q;d')
-		clang_options=$(eval getSystemPaths "$clang_options")
+		universe=" (universe)"
 	fi
 	local cpp2v="cpp2v -v %{input}"
 	local core="-o ${module} -names ${names}"
 
 	if [ "$templates" = 1 ]; then
 		local templates="${name}_${ext}_templates.v"
-		local cmd1="${cpp2v} ${core} --templates=${templates} ${1+ $@} ${clang_options} "
-		action="(progn (run ${cmd1}))"
+		local cmd="${cpp2v} ${core} --templates=${templates} ${1+ $@} ${clang_options} "
 		targ="$targ ${templates}"
 	else
 		local cmd="${cpp2v} ${core} ${1+ $@} ${clang_options}"
-		action="(run ${cmd})"
 	fi
+	action="(run ${cmd})"
 	sed "s/^/${indent}/" <<-EOF
 		(rule
-		 (targets ${targ})
+		 (targets ${module}.stderr ${targ})
 		 (alias test_ast)
-		 (deps (:input ${name}.${ext}) (glob_files_rec ../*.hpp))
+		 (deps (:input ${name}.${ext}) (glob_files_rec ${prefix}*.hpp)${universe})
 		 (action
-		  ${action}))
+		 	 (with-stderr-to ${module}.stderr ${action})))
 		(alias (name srcs) (deps ${name}.${ext}))
 	EOF
 	# TODO: maybe drop @srcs alias, seems leftover from !2613
@@ -110,6 +90,7 @@ traverse() {
 
 templates=0
 system=0
+prefix="../"
 while :
 do
 	case "$1" in
@@ -119,6 +100,11 @@ do
 		;;
 	-s)
 		system=1
+		shift
+		;;
+	-p)
+		shift
+		prefix="$1"
 		shift
 		;;
 	--)
