@@ -432,7 +432,8 @@ let output_static : unit -> unit = fun () ->
 
 let init_command indent =
   sect indent "Initialize bhv" (fun () ->
-  icmd indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1")
+  icmd indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1";
+  icmd indent "make dump_repos_info")
 
 let find_unique_config = fun name configs ->
   let is_match (repo, _) = String.equal repo.Config.name name in
@@ -451,7 +452,6 @@ let checkout_commands indent config =
   let (bhv, rest) = find_unique_config "bhv" config in
   checkout_command indent bhv;
   init_command indent;
-  icmd indent "make dump_repos_info";
   List.iter (checkout_command indent) rest
 
 module Checkout : sig
@@ -540,7 +540,6 @@ let main_job : unit -> unit = fun () ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   line "    # Create Directory structure for dune";
   line "    - mkdir -p ~/.cache/ ~/.config/dune/";
   line "    - cp support/fm/dune_config ~/.config/dune/config";
@@ -711,7 +710,6 @@ let main_job : unit -> unit = fun () ->
   sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
@@ -843,7 +841,6 @@ let nova_job : unit -> unit = fun () ->
   cmd  "    " bhv_cloning clone_dir;
   line "    - cd %s" clone_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
@@ -900,7 +897,6 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -933,7 +929,6 @@ let cpp2v_core_public_job : int -> unit = fun llvm ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -993,7 +988,6 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -1030,7 +1024,6 @@ let proof_tidy : unit -> unit = fun () ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
@@ -1055,7 +1048,6 @@ let fm_docs_job : unit -> unit = fun () ->
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
   cmd  "    - " init_command;
-  line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
@@ -1121,7 +1113,6 @@ let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
     cmd  "    - " init_command;
-    line "    - make dump_repos_info";
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
