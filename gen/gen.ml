@@ -420,6 +420,7 @@ let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
     indent name
 
 let cmd indent f = f indent
+let icmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent
 
 let output_static : unit -> unit = fun () ->
   line "# Dynamically generated CI configuration.";
@@ -430,9 +431,9 @@ let output_static : unit -> unit = fun () ->
   line ""
 
 let init_command indent =
-  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
-  cmd  indent "time make -j ${NJOBS} init")
+  icmd indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1";
+  icmd indent "make dump_repos_info")
 
 let find_unique_config = fun name configs ->
   let is_match (repo, _) = String.equal repo.Config.name name in
@@ -441,10 +442,9 @@ let find_unique_config = fun name configs ->
   (config, rest)
 
 let checkout_command indent (repo, hash)  =
-  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
-  cmd indent "git -C %s fetch --depth 1 --quiet origin %s" bhv_path hash;
-  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
+  icmd indent "git -C %s fetch --depth 1 --quiet origin %s" bhv_path hash;
+  icmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
 
 let checkout_commands indent config =
   (* We must checkout bhv first to make sure we can run init so that the
@@ -498,11 +498,12 @@ let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
   line "    GET_SOURCES_ATTEMPTS: 3";
   line "    # Only used to build Zydis (we only do caching via dune).";
   line "    BUILD_CACHING: 0";
-  line "    # Speed up [make init]";
+  (* Speed up [make init]. TODO: now they're in init_command, so remove this copy. *)
   line "    BRASS_aarch64: 'off'";
   line "    BRASS_x86_64: 'off'";
-  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "    SHALLOW: 1";
+  (* Speed up [make init] end. *)
+  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "  retry:";
   line "    max: 1";
   line "    when:";
@@ -523,8 +524,7 @@ let bhv_hash : string =
   in hash
 
 let bhv_cloning : string -> string -> unit = fun indent destdir ->
-  (* TODO lift? *)
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = icmd (indent ^ "- ") fmt in
   cmd indent "git clone --depth 1 %s %s" (repo_url "${CI_JOB_TOKEN}" "bhv") destdir;
   cmd indent "git -C %s fetch --depth 1 --quiet origin %s" destdir bhv_hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
@@ -539,9 +539,7 @@ let main_job : unit -> unit = fun () ->
   line "    # Initialize a bhv checkout.";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  sect "    - " "Initialize bhv" (fun () ->
-  line "    - time make -j ${NJOBS} init");
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   line "    # Create Directory structure for dune";
   line "    - mkdir -p ~/.cache/ ~/.config/dune/";
   line "    - cp support/fm/dune_config ~/.config/dune/config";
@@ -711,8 +709,7 @@ let main_job : unit -> unit = fun () ->
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
-  sect "    - " "Initialize bhv" (fun () ->
-  line "    - time make -j ${NJOBS} init");
+  cmd  "    - " init_command;
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
@@ -843,8 +840,7 @@ let nova_job : unit -> unit = fun () ->
   let clone_dir = "/tmp/clone-dir" in
   cmd  "    " bhv_cloning clone_dir;
   line "    - cd %s" clone_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
   line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
@@ -900,8 +896,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -933,8 +928,7 @@ let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -993,8 +987,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   (* Prepare the dune file structure for the cache. *)
@@ -1030,8 +1023,7 @@ let proof_tidy : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Apply structured linting policies to portions of the vSwitch";
@@ -1055,8 +1047,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
-  line "    - make dump_repos_info";
+  cmd  "    - " init_command;
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
   line "    # Increase the stack size for large files.";
@@ -1121,8 +1112,7 @@ let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
     line "    - env");
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
-    sect "    - " "Initialize bhv" (fun () ->
-    line "    - time make -j ${NJOBS} init");
+    cmd  "    - " init_command;
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
