@@ -126,3 +126,6 @@ ENV PATH=${llvm_base_dir}:"$PATH"
 RUN echo PATH=${llvm_base_dir}:'"$PATH"' >> ~coq/.profile
 
 CMD ["/bin/bash", "--login"]
+
+# Dune config
+COPY --chown=coq files/dune-config /home/coq/.config/dune/config

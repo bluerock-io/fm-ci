@@ -18,4 +18,3 @@ ENV ROCQ_LIB=$OCAMLPATH/coq
 ENV ROCQPATH=$ROCQ_LIB/user-contrib
 
 COPY files/LICENSE /home/coq/LICENSE
-COPY files/dune-config /home/coq/.config/dune/config
