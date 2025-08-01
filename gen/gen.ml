@@ -1097,7 +1097,7 @@ let opam_docker_install_job : unit -> unit = fun () ->
   line "    - cp checkout_script.sh $CI_PROJECT_DIR/checkout_script.sh";
   line "    - cat checkout_script.sh";
   line "    - echo \"$CI_REGISTRY_PASSWORD\" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY";
-  line "    - GIT_AUTH_TOKEN=%s docker build -f Dockerfile-checkout-opam-release \
+  line "    - GIT_AUTH_TOKEN=%s docker build --pull -f Dockerfile-checkout-opam-release \
                 --secret type=env,id=CI_JOB_TOKEN \
                 --build-arg BHV_COMMIT=%s \
                 --push \
