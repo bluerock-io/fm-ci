@@ -451,6 +451,7 @@ let checkout_commands indent config =
   let (bhv, rest) = find_unique_config "bhv" config in
   checkout_command indent bhv;
   init_command indent;
+  icmd indent "make dump_repos_info";
   List.iter (checkout_command indent) rest
 
 module Checkout : sig
@@ -710,6 +711,7 @@ let main_job : unit -> unit = fun () ->
   sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
   cmd  "    - " init_command;
+  line "    - make dump_repos_info";
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
@@ -1119,6 +1121,7 @@ let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
     cmd  "    - " init_command;
+    line "    - make dump_repos_info";
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
