@@ -22,6 +22,10 @@ RUN cat /proc/cpuinfo /proc/meminfo \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+# Supports bash-isms better, for instance for cram tests
+# (see https://bluerocksecurity.atlassian.net/browse/FM-4754)
+RUN ln -sf bash /bin/sh
+
 ### Add Coq group and user with sudo perms ###################################
 
 RUN groupadd -g 1008 coq \
@@ -126,3 +130,6 @@ ENV PATH=${llvm_base_dir}:"$PATH"
 RUN echo PATH=${llvm_base_dir}:'"$PATH"' >> ~coq/.profile
 
 CMD ["/bin/bash", "--login"]
+
+# Dune config
+COPY --chown=coq files/dune-config /home/coq/.config/dune/config

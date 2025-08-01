@@ -3,7 +3,6 @@ FROM registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-default
 ARG BHV_COMMIT
 ENV BHV_COMMIT=${BHV_COMMIT}
 
-COPY --chown=coq files/dune-config /home/coq/.config/dune/config
 COPY --chown=coq files/LICENSE /home/coq/LICENSE
 
 COPY files/opam-clean /tmp/files/opam-clean
