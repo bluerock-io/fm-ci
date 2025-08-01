@@ -432,7 +432,7 @@ let output_static : unit -> unit = fun () ->
 let init_command indent =
   let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
-  cmd  indent "time make -j ${NJOBS} init")
+  cmd  indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1")
 
 let find_unique_config = fun name configs ->
   let is_match (repo, _) = String.equal repo.Config.name name in
@@ -498,11 +498,12 @@ let gen_common : runner_tag:string -> image:string -> dune_cache:bool -> unit =
   line "    GET_SOURCES_ATTEMPTS: 3";
   line "    # Only used to build Zydis (we only do caching via dune).";
   line "    BUILD_CACHING: 0";
-  line "    # Speed up [make init]";
+  (* Speed up [make init]. TODO: now they're in init_command, so remove this copy. *)
   line "    BRASS_aarch64: 'off'";
   line "    BRASS_x86_64: 'off'";
-  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "    SHALLOW: 1";
+  (* Speed up [make init] end. *)
+  line "    GITLAB_URL: %s/" (gitlab_repo_base_url "${CI_JOB_TOKEN}");
   line "  retry:";
   line "    max: 1";
   line "    when:";
