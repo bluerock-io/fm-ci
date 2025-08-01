@@ -420,6 +420,7 @@ let sect : string -> string -> ?collapsed:bool -> (unit -> unit) -> unit =
     indent name
 
 let cmd indent f = f indent
+let icmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent
 
 let output_static : unit -> unit = fun () ->
   line "# Dynamically generated CI configuration.";
@@ -430,9 +431,8 @@ let output_static : unit -> unit = fun () ->
   line ""
 
 let init_command indent =
-  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   sect indent "Initialize bhv" (fun () ->
-  cmd  indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1")
+  icmd indent "time make -j ${NJOBS} init BRASS_aarch64=off BRASS_x86_64=off SHALLOW=1")
 
 let find_unique_config = fun name configs ->
   let is_match (repo, _) = String.equal repo.Config.name name in
@@ -441,10 +441,9 @@ let find_unique_config = fun name configs ->
   (config, rest)
 
 let checkout_command indent (repo, hash)  =
-  let cmd indent fmt = Printf.fprintf oc ("%s" ^^ fmt ^^ "\n") indent in
   let bhv_path = repo.Config.bhv_path in
-  cmd indent "git -C %s fetch --depth 1 --quiet origin %s" bhv_path hash;
-  cmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
+  icmd indent "git -C %s fetch --depth 1 --quiet origin %s" bhv_path hash;
+  icmd indent "git -C %s -c advice.detachedHead=false checkout %s" bhv_path hash
 
 let checkout_commands indent config =
   (* We must checkout bhv first to make sure we can run init so that the
@@ -524,8 +523,7 @@ let bhv_hash : string =
   in hash
 
 let bhv_cloning : string -> string -> unit = fun indent destdir ->
-  (* TODO lift? *)
-  let cmd indent fmt = Printf.fprintf oc ("%s- " ^^ fmt ^^ "\n") indent in
+  let cmd indent fmt = icmd (indent ^ "- ") fmt in
   cmd indent "git clone --depth 1 %s %s" (repo_url "${CI_JOB_TOKEN}" "bhv") destdir;
   cmd indent "git -C %s fetch --depth 1 --quiet origin %s" destdir bhv_hash;
   cmd indent "git -C %s -c advice.detachedHead=false checkout %s" destdir bhv_hash
