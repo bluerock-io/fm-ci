@@ -62,14 +62,21 @@ ${BHV}/support/gather-coq-paths.py `find . -name dune` >> _CoqProject
 docker run -v ${target}:${demo_mount_point} --rm -it ${img_name} bash -l -c \
        "cd ${demo_mount_point}; dune build; cd fm-docs; ./core-build.sh"
 
-# Copy docker image inside container
-rsync -av ${docker_path}/${docker_name} ${docker_target_name} "$@"
-
 # Alternatively, do the build directly because we are inside the container?
 # cd ${demo_mount_point}; dune build; cd fm-docs; ./core-build.sh
 
 # Copy fm-docs output back to source, so we won't erase it at next pass.
 rsync -avc fm-docs/ ${BHV}/fmdeps/fm-docs/ "$@"
+
+# Copy docker image inside container (if we're not building a shrunk tarball)
+
+if [ -f ${docker_path}/${docker_name} ]; then
+  rsync -av ${docker_path}/${docker_name} ${docker_target_name} "$@"
+else
+  echo "Docker image missing! Building source-only tarball."
+  echo "If you want to change this, run the following then re-run this script:"
+  echo "  make -C ../docker pack-release"
+fi
 
 cd ${target_parent}
 time tar czf ${target_tarball} ${target_dir_name}
