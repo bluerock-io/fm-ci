@@ -539,8 +539,7 @@ let main_job : unit -> unit = fun () ->
   line "    # Initialize a bhv checkout.";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  sect "    - " "Initialize bhv" (fun () ->
-  line "    - time make -j ${NJOBS} init");
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   line "    # Create Directory structure for dune";
   line "    - mkdir -p ~/.cache/ ~/.config/dune/";
@@ -711,8 +710,7 @@ let main_job : unit -> unit = fun () ->
   line "    - make -sj ${NJOBS} gitclean > /dev/null";
   sect "    - " "Check out main branches (again)" (fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
-  sect "    - " "Initialize bhv" (fun () ->
-  line "    - time make -j ${NJOBS} init");
+  cmd  "    - " init_command;
   line "    - make statusm";
   line "    - make -C fmdeps/cpp2v ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
@@ -843,7 +841,7 @@ let nova_job : unit -> unit = fun () ->
   let clone_dir = "/tmp/clone-dir" in
   cmd  "    " bhv_cloning clone_dir;
   line "    - cd %s" clone_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
@@ -900,7 +898,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
@@ -933,7 +931,7 @@ let cpp2v_core_public_job : int -> unit = fun llvm ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
@@ -993,7 +991,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
@@ -1030,7 +1028,7 @@ let proof_tidy : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
@@ -1055,7 +1053,7 @@ let fm_docs_job : unit -> unit = fun () ->
   line "    - env";
   cmd  "    " bhv_cloning build_dir;
   line "    - cd %s" build_dir;
-  line "    - time make -j ${NJOBS} init";
+  cmd  "    - " init_command;
   line "    - make dump_repos_info";
   cmd  "    " Checkout.use_script ~name:"main";
   line "    - make statusm";
@@ -1121,8 +1119,7 @@ let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
     line "    - env");
     cmd  "    " bhv_cloning build_dir;
     line "    - cd %s" build_dir;
-    sect "    - " "Initialize bhv" (fun () ->
-    line "    - time make -j ${NJOBS} init");
+    cmd  "    - " init_command;
     cmd  "    " Checkout.use_script ~name:"main";
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
