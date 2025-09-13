@@ -154,7 +154,8 @@ Steps for adding new FM repositories:
 7. Add the repository to `fm-workspace`'s in `setup-fmdeps.sh` `FM_REPOS` (for external users). TODO: CI tests for this.
 
 In case of permission errors, go to `Settings` -> `CI/CD` -> `Job token
-permissions` and enable `All groups and projects`.
+permissions -> CI/CD job token allowlist` and add
+`bedrocksystems` with `Default permissions`.
 
 Note that it is also necessary to update the
 [fm-workspace](https://gitlab.com/bedrocksystems/formal-methods/fm-workspace)
