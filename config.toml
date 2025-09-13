@@ -110,6 +110,12 @@ deps = [
   "coq-equations", "coq-ext-lib", "cpp2v"
 ]
 
+[repo.micro-docs]
+branch = "main"
+deps = [
+  "cpp2v"
+]
+
 [repo.NOVA]
 gitlab = "NOVA"
 path = "./NOVA"
