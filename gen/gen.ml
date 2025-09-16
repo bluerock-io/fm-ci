@@ -711,7 +711,7 @@ let main_job : unit -> unit = fun () ->
   cmd  "    " Checkout.use_script ~name:"main");
   cmd  "    - " init_command;
   line "    - make statusm";
-  line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - make ast-prepare";
   line "    - dune build fmdeps/cpp2v-core/rocq-tools";
   line "    - mv $CI_PROJECT_DIR/perf-data perf-data";
   line "    - mv $CI_PROJECT_DIR/perf-data_ref perf-data_ref";
@@ -905,7 +905,7 @@ let cpp2v_core_llvm_job : int -> unit = fun llvm ->
   line "    - cp support/fm/dune_config ~/.config/dune/config";
   (* Build cpp2v-core including tests. *)
   line "    # Build.";
-  line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - make ast-prepare";
   (* Make sure the rocq binary is available.
      This is necessary to ensure that our wrappers are functional.
      We cannot tell dune about the dependency of coqc_perf on rocq
@@ -996,7 +996,7 @@ let cpp2v_core_pages_job : unit -> unit = fun () ->
   line "    - cp support/fm/dune_config ~/.config/dune/config";
   (* Build the pages. *)
   line "    # Build the pages.";
-  line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - make ast-prepare";
   line "    - cd fmdeps/cpp2v-core";
   line "    - git submodule update --init";
   line "    - make -j ${NJOBS} doc";
@@ -1117,7 +1117,7 @@ let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
     line "    - make statusm";
     line "    # Increase the stack size for large files.";
     line "    - ulimit -S -s 32768";
-    line "    - make -C fmdeps/cpp2v ast-prepare";
+    line "    - make ast-prepare";
     (* XXX
     Everything above is duplicated from fm_docs_job etc.,
     and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
