@@ -857,6 +857,7 @@ let nova_job : unit -> unit = fun () ->
   (* Build and create installed artifact. *)
   line "    # Build.";
   line "    - make -C fmdeps/cpp2v ast-prepare";
+  line "    - make -C fmdeps/micro-docs ast-prepare";
   line "    - dune build _build/install/default/bin/filter-dune-output";
   line "    - dune build -j ${NJOBS} @install 2>&1 | \
                 _build/install/default/bin/filter-dune-output";
