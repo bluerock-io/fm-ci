@@ -1,1 +1,0 @@
-FROM registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-release
