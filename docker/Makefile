@@ -5,7 +5,7 @@ FM_RELEASE_FULL_VERSION = 2025-08-01
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
 # We keep $(BR_IMAGE_VERSION) purely internal.
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
-RELEASE_TAG ?= fm-cibuild-latest
+RELEASE_TAG ?= fm-opam-release-latest
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -164,16 +164,16 @@ build-opam-release: prepare-opam-release
 	docker buildx build \
 		-f Dockerfile-opam-release \
 		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
-		-t $(BR_REGISTRY):fm-opam-release \
+		-t $(BR_REGISTRY):$(RELEASE_TAG) \
 		.
 
 run-release: build-release
-	@echo "[DOCKER] Running fm-release"
+	@echo "[DOCKER] Running fm-opam-release"
 	$(Q)docker run -i -t $(BR_REGISTRY):$(RELEASE_TAG)
 .PHONY: run-release
 
 push-release: build-release
-	@echo "[DOCKER] Pushing fm-release"
+	@echo "[DOCKER] Pushing fm-opam-release"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):$(RELEASE_TAG)

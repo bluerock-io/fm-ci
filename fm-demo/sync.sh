@@ -26,7 +26,7 @@ target_tarball=${target}.tar.gz
 # Path inside container -- chosen to match VsCode one
 demo_mount_point=/workspaces/${target_dir_name}
 # Tag for docker image
-img_name=registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-cibuild-latest
+img_name=registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-opam-release-latest
 
 echo ">>> Assembling release ${release_ver} in path ${target} and tarball ${target_tarball}"
 
