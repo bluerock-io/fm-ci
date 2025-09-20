@@ -9,7 +9,7 @@ RELEASE_TAG ?= fm-opam-release-latest
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
-LLVM_VERSIONS ?= 18 19 20
+LLVM_VERSIONS ?= 18 19 20 21
 LLVM_MAIN_VERSION ?= 19
 I_KNOW_WHAT_I_AM_DOING ?= no
 QUIET ?= true
