@@ -86,4 +86,6 @@
   (zarith_stubs_js (= v0.16.1))
   (bheap (= 2.0.0))
   (ptset (= 1.0.1))
-  (ptmap (= 2.0.5))))
+  (ptmap (= 2.0.5))
+  (ocamlformat (= 0.27.0))
+  (ocaml-lsp-server (= 1.18.0))))
