@@ -180,7 +180,7 @@ Another weekly pipeline uses `FM_CI_FULL_OPAM=true` to:
 Another pipeline (daily/weekly?) builds the new public release docker image.
 This sets `FM_CI_DOCKER_OPAM=true` to:
 - disable standard CI jobs
-- build a Docker release image using
+- build a Docker release image using `opam install`.
 
 ### Release
 

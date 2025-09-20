@@ -146,20 +146,6 @@ logout:
 	$(Q)docker logout $(REGISTRY)
 .PHONY: logout
 
-ARTIFACT_JOB := https://gitlab.com/api/v4/projects/59374913/jobs/artifacts
-ARTIFACT_URL := $(ARTIFACT_JOB)/trigger-default/download?job=gen-installed-artifact
-ifndef CI_JOB_TOKEN
-HEADER_DEPS := gitlab-token
-HEADER := "PRIVATE-TOKEN: $$(cat gitlab-token)"
-else
-HEADER_DEPS :=
-HEADER := "JOB-TOKEN: $(CI_JOB_TOKEN)"
-endif
-
-files/fm-artifact.zip: $(HEADER_DEPS)
-	@echo -e $(call color,$(CYAN),Downloading the artifact...)
-	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
-
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
@@ -180,22 +166,6 @@ build-opam-release: prepare-opam-release
 		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
 		-t $(BR_REGISTRY):fm-opam-release \
 		.
-
-build-release: $(RELEASE_TAG)
-.PHONY: build-release
-
-$(RELEASE_TAG): files/fm-artifact.zip
-	@echo "[DOCKER] Building $(RELEASE_TAG)"
-	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
-		--platform linux/amd64 \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
-		-f Dockerfile-artifact-release .
-.PHONY: $(RELEASE_TAG)
-
-tag-release: $(RELEASE_TAG)
-	@echo "[DOCKER] Tagging $< as fm-release"
-	@docker image tag $(BR_REGISTRY):$< $(BR_REGISTRY):fm-release
-.PHONY: tag-release
 
 run-release: build-release
 	@echo "[DOCKER] Running fm-release"

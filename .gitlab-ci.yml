@@ -35,18 +35,3 @@ trigger:
     project: bedrocksystems/formal-methods/ci-backfire
     branch: main
     strategy: depend
-
-docker-release:
-  image: docker:27.3.1
-  services:
-    - docker:27.3.1-dind
-  tags:
-    - fm.docker
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $DOCKER_RELEASE_MODE == "true"
-  before_script:
-    - env
-    - docker info
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - make -C docker push-release I_KNOW_WHAT_I_AM_DOING=yes
