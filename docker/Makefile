@@ -5,7 +5,7 @@ FM_RELEASE_FULL_VERSION = 2025-08-01
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
 # We keep $(BR_IMAGE_VERSION) purely internal.
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
-RELEASE_TAG ?= fm-release
+RELEASE_TAG ?= fm-cibuild-latest
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -228,7 +228,7 @@ name-release:
 	@echo $(FM_RELEASE_TARBALL_NAME)
 
 $(FM_RELEASE_TARBALL_NAME).tar.gz:
-	docker save $(BR_REGISTRY):fm-cibuild-latest | $(PV) | gzip > "$@"
+	docker save $(BR_REGISTRY):$(RELEASE_TAG) | $(PV) | gzip > "$@"
 
 pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz
 .PHONY: pack-release
