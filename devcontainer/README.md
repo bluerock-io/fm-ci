@@ -40,7 +40,7 @@ If you have `direnv` configured, you simply need the following `.envrc`:
 export DUNE_CACHE_DOCKER=$PWD/dune-cache
 # choose your LLVM version
 export LLVM_VERSION=19
-export BR_FMDEPS_VERSION=2025-06-03
+export BR_FMDEPS_VERSION=2025-08-01
 ```
 
 This must be placed in your `bhv` checkout/worktree, or in a containing folder;
