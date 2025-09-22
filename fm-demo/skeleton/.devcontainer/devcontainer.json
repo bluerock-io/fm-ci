@@ -2,7 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/alpine
 {
   "name": "BlueRock-release",
-  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-cibuild-latest",
+  "image": "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci:fm-opam-release-latest",
   "runArgs": [
     "--platform",
     "linux/amd64"

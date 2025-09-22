@@ -1071,7 +1071,7 @@ let with_bhv_path bhv_path config =
   ({name; gitlab; bhv_path; main_branch; deps; vendored}, hash)
 
 let opam_docker_install_job : unit -> unit = fun () ->
-  let new_image_name = with_registry "fm-cibuild-latest" in
+  let new_image_name = with_registry "fm-opam-release-latest" in
   line "opam-docker-install-build:";
   gen_common ~runner_tag:"fm.docker" ~image:docker_img ~dune_cache:true;
   docker_services ();

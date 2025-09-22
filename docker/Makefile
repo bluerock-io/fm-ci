@@ -1,15 +1,15 @@
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
-BR_FMDEPS_VERSION ?= 2025-08-01
-FM_RELEASE_FULL_VERSION = 2025-08-01
+BR_FMDEPS_VERSION ?= 2025-08-19
+FM_RELEASE_FULL_VERSION = 2025-08-19
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)
 # We keep $(BR_IMAGE_VERSION) purely internal.
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
-RELEASE_TAG ?= fm-release
+RELEASE_TAG ?= fm-opam-release-latest
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
-LLVM_VERSIONS ?= 18 19 20
+LLVM_VERSIONS ?= 18 19 20 21
 LLVM_MAIN_VERSION ?= 19
 I_KNOW_WHAT_I_AM_DOING ?= no
 QUIET ?= true
@@ -146,20 +146,6 @@ logout:
 	$(Q)docker logout $(REGISTRY)
 .PHONY: logout
 
-ARTIFACT_JOB := https://gitlab.com/api/v4/projects/59374913/jobs/artifacts
-ARTIFACT_URL := $(ARTIFACT_JOB)/trigger-default/download?job=gen-installed-artifact
-ifndef CI_JOB_TOKEN
-HEADER_DEPS := gitlab-token
-HEADER := "PRIVATE-TOKEN: $$(cat gitlab-token)"
-else
-HEADER_DEPS :=
-HEADER := "JOB-TOKEN: $(CI_JOB_TOKEN)"
-endif
-
-files/fm-artifact.zip: $(HEADER_DEPS)
-	@echo -e $(call color,$(CYAN),Downloading the artifact...)
-	@curl --show-error --location --output $@ --header $(HEADER) $(ARTIFACT_URL)
-
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
@@ -178,32 +164,16 @@ build-opam-release: prepare-opam-release
 	docker buildx build \
 		-f Dockerfile-opam-release \
 		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
-		-t $(BR_REGISTRY):fm-opam-release \
+		-t $(BR_REGISTRY):$(RELEASE_TAG) \
 		.
 
-build-release: $(RELEASE_TAG)
-.PHONY: build-release
-
-$(RELEASE_TAG): files/fm-artifact.zip
-	@echo "[DOCKER] Building $(RELEASE_TAG)"
-	$(Q)docker buildx build --pull -t $(BR_REGISTRY):$(RELEASE_TAG) \
-		--platform linux/amd64 \
-		--build-arg BASE_IMAGE=$(BR_REGISTRY):$(DEFAULT_TAG) \
-		-f Dockerfile-artifact-release .
-.PHONY: $(RELEASE_TAG)
-
-tag-release: $(RELEASE_TAG)
-	@echo "[DOCKER] Tagging $< as fm-release"
-	@docker image tag $(BR_REGISTRY):$< $(BR_REGISTRY):fm-release
-.PHONY: tag-release
-
 run-release: build-release
-	@echo "[DOCKER] Running fm-release"
+	@echo "[DOCKER] Running fm-opam-release"
 	$(Q)docker run -i -t $(BR_REGISTRY):$(RELEASE_TAG)
 .PHONY: run-release
 
 push-release: build-release
-	@echo "[DOCKER] Pushing fm-release"
+	@echo "[DOCKER] Pushing fm-opam-release"
 ifeq ($(I_KNOW_WHAT_I_AM_DOING),yes)
 	@echo "(Let's hope you did not mess anything up...)"
 	$(Q)docker push $(BR_REGISTRY):$(RELEASE_TAG)
@@ -228,7 +198,7 @@ name-release:
 	@echo $(FM_RELEASE_TARBALL_NAME)
 
 $(FM_RELEASE_TARBALL_NAME).tar.gz:
-	docker save $(BR_REGISTRY):fm-cibuild-latest | $(PV) | gzip > "$@"
+	docker save $(BR_REGISTRY):$(RELEASE_TAG) | $(PV) | gzip > "$@"
 
 pack-release: $(FM_RELEASE_TARBALL_NAME).tar.gz
 .PHONY: pack-release
