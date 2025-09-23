@@ -177,17 +177,10 @@ Another weekly pipeline uses `FM_CI_FULL_OPAM=true` to:
 
 ### Docker image building
 
-Another pipeline (daily/weekly?) builds the new public release docker image.
+Another pipeline weekly builds the new public release docker image.
 This sets `FM_CI_DOCKER_OPAM=true` to:
 - disable standard CI jobs
 - build a Docker release image using `opam install`.
-
-### Release
-
-A daily pipeline is used to release the public release docker image. This is
-done by setting `DOCKER_RELEASE_MODE=true`, which disables standard CI jobs
-and instead runs a special job building and publishing the CI image (see the
-`.gitlab-ci.yml` file for details).
 
 Infrastructure for building the release image is found in the `docker` folder.
 
