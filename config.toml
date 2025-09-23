@@ -48,22 +48,22 @@ vendored = true
 
 [repo.stdpp]
 branch = "br-master"
-deps = ["fm-ci", "coq"]
+deps = ["fm-ci", "stdlib"]
 vendored = true
 
 [repo.iris]
 branch = "br-master"
-deps = ["fm-ci", "coq", "stdpp"]
+deps = ["fm-ci", "stdpp"]
 vendored = true
 
 [repo.coq-ext-lib]
 branch = "br-master"
-deps = ["fm-ci", "coq"]
+deps = ["fm-ci", "stdlib"]
 vendored = true
 
 [repo.coq-equations]
 branch = "br-main"
-deps = ["fm-ci", "coq"]
+deps = ["fm-ci", "stdlib"]
 vendored = true
 
 [repo.elpi]
@@ -73,7 +73,7 @@ vendored = true
 
 [repo.coq-elpi]
 branch = "br-master"
-deps = ["fm-ci", "coq", "elpi"]
+deps = ["fm-ci", "stdlib", "elpi"]
 vendored = true
 
 [repo.coq-lsp]
@@ -87,31 +87,30 @@ deps = ["fm-ci", "coq"]
 vendored = true
 
 [repo.fm-tools]
-branch = "main"
 deps = ["fm-ci"]
 
 [repo.cpp2v-core]
 gitlab = "cpp2v-core"
 branch = "master"
-deps = ["fm-ci", "coq", "stdpp", "iris", "coq-elpi"]
+deps = [
+  "fm-ci", "iris", "coq-elpi", "coq-equations",
+  "coq-ext-lib" # currently redundant, not worth removing
+]
 
 [repo.cpp2v]
 gitlab = "cpp2v"
 branch = "master"
 deps = [
-  "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
-  "coq-equations", "coq-ext-lib"
+  "fm-ci", "cpp2v-core", "coq-ext-lib"
 ]
 
 [repo.fm-docs]
 branch = "main"
 deps = [
-  "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
-  "coq-equations", "coq-ext-lib", "cpp2v"
+  "fm-ci", "cpp2v"
 ]
 
 [repo.micro-docs]
-branch = "main"
 deps = [
   "cpp2v"
 ]
@@ -121,14 +120,12 @@ gitlab = "NOVA"
 path = "./NOVA"
 branch = "proof"
 deps = [
-  "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
-  "coq-equations", "coq-ext-lib", "cpp2v"
+  "fm-ci", "cpp2v"
 ]
 
 [repo.bhv]
 gitlab = "bhv"
 path = "."
 deps = [
-  "fm-ci", "coq", "stdpp", "iris", "coq-elpi", "cpp2v-core",
-  "coq-equations", "coq-ext-lib", "cpp2v"
+  "fm-ci", "cpp2v"
 ]
