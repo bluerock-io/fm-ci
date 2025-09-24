@@ -104,6 +104,11 @@ deps = [
   "fm-ci", "cpp2v-core", "coq-ext-lib"
 ]
 
+[repo.nova-interface]
+deps = [
+  "fm-ci", "cpp2v"
+]
+
 [repo.fm-docs]
 branch = "main"
 deps = [
