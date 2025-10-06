@@ -1,3 +1,4 @@
+SHELL := $(shell which bash)
 REGISTRY ?= registry.gitlab.com
 BR_REGISTRY ?= $(REGISTRY)/bedrocksystems/formal-methods/fm-ci
 BR_FMDEPS_VERSION ?= 2025-08-19
@@ -6,6 +7,7 @@ FM_RELEASE_FULL_VERSION = 2025-08-19
 # We keep $(BR_IMAGE_VERSION) purely internal.
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
 RELEASE_TAG ?= fm-opam-release-latest
+SL_RELEASE_TAG ?= 2025-10-03-llvm-19
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
@@ -146,6 +148,21 @@ logout:
 	$(Q)docker logout $(REGISTRY)
 .PHONY: logout
 
+
+dockerhub-token:
+	@echo -e $(call color,$(CYAN),You need a Docker hub API token.)
+	@echo -n "Enter your Docker hub API token: "
+	@read -r TOKEN; echo $$TOKEN > $@
+
+login-dockerhub: dockerhub-token
+	$(Q)docker login -u skylabsai --password-stdin < $<
+.PHONY: login-dockerhub
+
+logout-dockerhub:
+	$(Q)docker logout
+.PHONY: logout-docker
+
+
 files/fmdocs_python_deps.txt: ../../fm-docs/python_requirements.txt
 	cp $< $@
 
@@ -189,6 +206,17 @@ pull-release:
 	$(Q)docker pull $(BR_REGISTRY):$(RELEASE_TAG)
 
 .PHONY: pull-release
+
+
+pull-skylabs:
+	$(Q)docker pull skylabsai/fm-releases:$(SL_RELEASE_TAG)
+.PHONY: pull-skylabs
+
+push-skylabs:
+	$(Q)docker tag skylabsai/fm-releases:$(SL_RELEASE_TAG) $(BR_REGISTRY):skylabs-$(SL_RELEASE_TAG)
+	$(Q)docker push $(BR_REGISTRY):skylabs-$(SL_RELEASE_TAG)
+.PHONY: push-skylabs
+
 
 PV = $(if $(shell which pv),pv,cat)
 
