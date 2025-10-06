@@ -878,19 +878,6 @@ let nova_job : unit -> unit = fun () ->
   line "    strategy: depend"
 
 
-let docker_img_version = "27.3.1"
-let docker_img = Printf.sprintf "docker:%s" docker_img_version
-
-let docker_services : unit -> unit = fun () ->
-  line "  services:";
-  line "    - docker:%s-dind" docker_img_version
-
-(* XXX lens *)
-let with_bhv_path bhv_path config =
-  let open Config in
-  let ({name; gitlab; bhv_path = _; main_branch; deps; vendored}, hash) = config in
-  ({name; gitlab; bhv_path; main_branch; deps; vendored}, hash)
-
 let skip_proof_job : unit -> unit = fun () ->
   line "skip-proof-job:";
   line "  tags:";
