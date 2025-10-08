@@ -84,7 +84,7 @@ let _ =
 
 (** CI image for a given version of LLVM (only 16 to 18 exist). *)
 let ci_image : llvm:int -> string = fun ~llvm ->
-  Printf.sprintf "fm-%s-llvm-%i" image_version llvm
+  Printf.sprintf "skylabs-%s-llvm-%i" image_version llvm
 
 let registry = "registry.gitlab.com/bedrocksystems/formal-methods/fm-ci"
 
@@ -585,17 +585,14 @@ let main_job : unit -> unit = fun () ->
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
   line "    # Actual build.";
-  line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
-  line "    - ((dune build -j ${NJOBS} @default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output; \
+  line "    - ((dune build -j ${NJOBS} @default @runtest 2>&1 | filter-dune-output; \
                 make dune_check -j${NJOBS}) || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
   end else begin
   line "    - ((dune build -j${NJOBS} \
-                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output) \
+                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | filter-dune-output) \
                 || (\
                 touch %s; echo \"MAIN BUILD FAILED AT THE BUILD STAGE\"))"
                 failure_file;
@@ -680,15 +677,12 @@ let main_job : unit -> unit = fun () ->
   line "    - diff -su ast_md5sums_v1.txt ast_md5sums.txt"
   end;
   line "    # Actual build.";
-  line "    - dune build _build/install/default/bin/filter-dune-output";
   if full_timing = `Full then begin
-  line "    - (dune build -j ${NJOBS} @default @runtest 2>&1 | \
-                _build/install/default/bin/filter-dune-output; \
+  line "    - (dune build -j ${NJOBS} @default @runtest 2>&1 | filter-dune-output; \
                 make dune_check -j${NJOBS})"
   end else begin
   line "    - (dune build -j${NJOBS} \
-                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | \
-                  _build/install/default/bin/filter-dune-output)"
+                @proof @fmdeps/default @NOVA/default @runtest 2>&1 | filter-dune-output)"
   end;
   line "    # Print information on the size of the _build directory.";
   line "    - du -hs _build";
@@ -712,7 +706,6 @@ let main_job : unit -> unit = fun () ->
   cmd  "    - " init_command;
   line "    - make statusm";
   line "    - make ast-prepare";
-  line "    - dune build fmdeps/cpp2v-core/rocq-tools";
   line "    - mv $CI_PROJECT_DIR/perf-data perf-data";
   line "    - mv $CI_PROJECT_DIR/perf-data_ref perf-data_ref";
   line "    - cp perf-data/perf_summary.csv \
@@ -856,11 +849,7 @@ let nova_job : unit -> unit = fun () ->
   line "    - cd %s" build_dir;
   (* Build and create installed artifact. *)
   line "    # Build.";
-  line "    - make -C fmdeps/cpp2v ast-prepare";
-  line "    - make -C fmdeps/micro-docs ast-prepare";
-  line "    - dune build _build/install/default/bin/filter-dune-output";
-  line "    - dune build -j ${NJOBS} @install 2>&1 | \
-                _build/install/default/bin/filter-dune-output";
+  line "    - dune build -j ${NJOBS} @install 2>&1 | filter-dune-output";
   line "    # Prepare installed artifact.";
   line "    - rm -rf $CI_PROJECT_DIR/fm-install";
   line "    - mkdir $CI_PROJECT_DIR/fm-install";
@@ -888,254 +877,6 @@ let nova_job : unit -> unit = fun () ->
   line "    branch: %s" nova_branch;
   line "    strategy: depend"
 
-let cpp2v_core_llvm_job : int -> unit = fun llvm ->
-  line "";
-  line "cpp2v-llvm-%i:" llvm;
-  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  cmd  "    " bhv_cloning build_dir;
-  line "    - cd %s" build_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm";
-  (* Prepare the dune file structure for the cache. *)
-  line "    # Create Directory structure for dune";
-  line "    - mkdir -p ~/.cache/ ~/.config/dune/";
-  line "    - cp support/fm/dune_config ~/.config/dune/config";
-  (* Build cpp2v-core including tests. *)
-  line "    # Build.";
-  line "    - make ast-prepare";
-  (* Make sure the rocq binary is available.
-     This is necessary to ensure that our wrappers are functional.
-     We cannot tell dune about the dependency of coqc_perf on rocq
-     because the package that provides the rocq binary also installs
-     a binary called coqc, which is the name under which coqc_perf
-     will be used.
-  *)
-  line "    - dune build @fmdeps/coq/install";
-  line "    - dune build _build/install/default/bin/filter-dune-output";
-  line "    - dune build -j ${NJOBS} \
-                fmdeps/cpp2v-core @fmdeps/cpp2v-core/runtest 2>&1 | \
-                _build/install/default/bin/filter-dune-output"
-
-let cpp2v_core_public_job : int -> unit = fun llvm ->
-  line "";
-  line "cpp2v-public-llvm-%i:" llvm;
-  common ~image:(with_registry (ci_image ~llvm)) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  cmd  "    " bhv_cloning build_dir;
-  line "    - cd %s" build_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm";
-  (* Prepare the dune file structure for the cache. *)
-  line "    # Create Directory structure for dune";
-  line "    - mkdir -p ~/.cache/ ~/.config/dune/";
-  line "    - cp support/fm/dune_config ~/.config/dune/config";
-  (* Pin the packages. *)
-  line "    # Pin the packages and install.";
-  line "    - opam pin add -n -y coq-upoly.dev ./fmdeps/cpp2v-core/coq-upoly";
-  line "    - opam pin add -n -y coq-cpp2v.dev ./fmdeps/cpp2v-core";
-  line "    - opam pin add -n -y coq-cpp2v-bin.dev ./fmdeps/cpp2v-core";
-  line "    - opam pin add -n -y coq-lens.dev ./fmdeps/cpp2v-core/coq-lens";
-  line "    - opam pin add -n -y coq-lens-elpi.dev \
-                ./fmdeps/cpp2v-core/coq-lens";
-  line "    - opam install --assume-depexts -y \
-                coq-upoly coq-cpp2v coq-cpp2v-bin coq-lens coq-lens-elpi"
-[@@warning "-32"]
-
-let cpp2v_core_pages_publish : unit -> unit = fun () ->
-  let line fmt = Printf.fprintf oc (fmt ^^ "\n") in
-  line "";
-  line "cpp2v-docs-publish:";
-  line "  image: ruby:2.5";
-  line "  needs:";
-  line "    - cpp2v-docs-gen";
-  line "  tags:";
-  line "    - fm.nfs";
-  line "  script:";
-  line "    - git config --global user.email \"${BRICK_BOT_EMAIL}\"";
-  line "    - git config --global user.name \"${BRICK_BOT_USERNAME}\"";
-  line "    - git clone \
-                https://${BRICK_BOT_USERNAME}:${BRICK_BOT_TOKEN}@\
-                gitlab.com/bedrocksystems/cpp2v-core.git";
-  line "    - cd cpp2v-core";
-  line "    - git checkout gh-pages";
-  line "    - git rm -r docs";
-  line "    - mv ../html docs";
-  line "    - touch docs/.nojekyll";
-  line "    - git add -f docs";
-  line "    - >";
-  line "      if git diff-index --quiet HEAD; then";
-  line "        echo \" No changes to the documentation.\"";
-  line "        exit 0";
-  line "      fi";
-  line "    - git commit -m \"[github pages] BRiCk documentation created \
-                from $CI_COMMIT_SHORT_SHA\"";
-  line "    - git push origin gh-pages"
-
-
-let cpp2v_core_pages_job : unit -> unit = fun () ->
-  line "";
-  line "cpp2v-docs-gen:";
-  common ~image:(with_registry main_image) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  cmd  "    " bhv_cloning build_dir;
-  line "    - cd %s" build_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm";
-  (* Prepare the dune file structure for the cache. *)
-  line "    # Create Directory structure for dune";
-  line "    - mkdir -p ~/.cache/ ~/.config/dune/";
-  line "    - cp support/fm/dune_config ~/.config/dune/config";
-  (* Build the pages. *)
-  line "    # Build the pages.";
-  line "    - make ast-prepare";
-  line "    - cd fmdeps/cpp2v-core";
-  line "    - git submodule update --init";
-  line "    - make -j ${NJOBS} doc";
-  line "    - mv doc/sphinx/_build/html $CI_PROJECT_DIR/html";
-  line "  artifacts:";
-  line "    paths:";
-  line "      - html";
-  (* Only publish the pages on master branch pipelines from cpp2v-core. *)
-  let publish =
-    let Info.{project_name; commit_branch; _} = trigger in
-    match commit_branch with None -> false | Some(commit_branch) ->
-    project_name = "cpp2v-core" && main_branch "cpp2v-core" = commit_branch
-  in
-  if publish then cpp2v_core_pages_publish ()
-
-(* TODO (FM-4443): generalize to:
-   1) run on all [.v] artifacts
-   2) produce a code quality report that is consumeable by gitlab. *)
-let proof_tidy : unit -> unit = fun () ->
-  line "proof-tidy:";
-  common ~image:(with_registry main_image) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  cmd  "    " bhv_cloning build_dir;
-  line "    - cd %s" build_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm";
-  line "    # Apply structured linting policies to portions of the vSwitch";
-  line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
-                --use-ci-output-format \
-                --proof-dirs apps/vswitch/lib/forwarding/proof/ \
-                apps/vswitch/lib/port/proof/ \
-                # apps/vswitch/lib/vswitch/proof/";
-  line "    # Apply a generic linting policy to all child [.v] files, \
-                enforcing avoidance of imports/exports written using [From]";
-  line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py \
-                --use-ci-output-format apps/vswitch";
-  line "    - python3 ./fmdeps/fm-ci/fm-linter/coq_lint.py
-                --use-ci-output-format apps/vmm/"
-
-let fm_docs_job : unit -> unit = fun () ->
-  line "fm-docs:";
-  common ~image:(with_registry main_image) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  cmd  "    " bhv_cloning build_dir;
-  line "    - cd %s" build_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm";
-  line "    # Increase the stack size for large files.";
-  line "    - ulimit -S -s 32768";
-  sect "    - " "Initialize checkout" (fun () ->
-  line "    - ./fm-build.py -b -j${NJOBS}");
-  line "    - ./fmdeps/fm-docs/ci-build.sh"
-
-let docker_img_version = "27.3.1"
-let docker_img = Printf.sprintf "docker:%s" docker_img_version
-
-let docker_services : unit -> unit = fun () ->
-  line "  services:";
-  line "    - docker:%s-dind" docker_img_version
-
-(* XXX lens *)
-let with_bhv_path bhv_path config =
-  let open Config in
-  let ({name; gitlab; bhv_path = _; main_branch; deps; vendored}, hash) = config in
-  ({name; gitlab; bhv_path; main_branch; deps; vendored}, hash)
-
-let opam_docker_install_job : unit -> unit = fun () ->
-  let new_image_name = with_registry "fm-opam-release-latest" in
-  line "opam-docker-install-build:";
-  gen_common ~runner_tag:"fm.docker" ~image:docker_img ~dune_cache:true;
-  docker_services ();
-  line "  script:";
-  line "    # Print environment for debug.";
-  sect "    - " "Environment" (fun () ->
-  line "    - env");
-  let (fm_ci, _) = find_unique_config "fm-ci" main_build in
-  checkout_command "    - " (with_bhv_path "." fm_ci);
-  line "    - cd docker";
-  line "    - |-";
-  line "      cat > checkout_script.sh <<EOF";
-  checkout_commands "      " main_build;
-  line "      EOF";
-  line "    - cp checkout_script.sh $CI_PROJECT_DIR/checkout_script.sh";
-  line "    - cat checkout_script.sh";
-  line "    - echo \"$CI_REGISTRY_PASSWORD\" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY";
-  line "    - GIT_AUTH_TOKEN=%s docker build --pull -f Dockerfile-checkout-opam-release \
-                --secret type=env,id=CI_JOB_TOKEN \
-                --build-arg BHV_COMMIT=%s \
-                --push \
-                -t %s ." token bhv_hash new_image_name;
-  (* line "    - docker push %s" new_image_name; *)
-  line "    - docker images";
-  line "  artifacts:";
-  line "    when: always";
-  line "    paths:";
-  line "      - checkout_script.sh";
-
-  ()
-
-let opam_install_job do_opam do_full_opam : unit -> unit = fun () ->
-  line "opam-install-build:";
-  common ~image:(with_registry main_image) ~dune_cache:true;
-  line "  script:";
-  if do_opam then begin
-    line "    # Print environment for debug.";
-    sect "    - " "Environment" (fun () ->
-    line "    - env");
-    cmd  "    " bhv_cloning build_dir;
-    line "    - cd %s" build_dir;
-    cmd  "    - " init_command;
-    cmd  "    " Checkout.use_script ~name:"main";
-    line "    - make statusm";
-    line "    # Increase the stack size for large files.";
-    line "    - ulimit -S -s 32768";
-    line "    - make ast-prepare";
-    (* XXX
-    Everything above is duplicated from fm_docs_job etc.,
-    and close to cpp2v_core_pages_job, cpp2v_core_pages_job *)
-    line "    - opam option depext=false";
-    line "    - opam update -y";
-    line "    - opam repo add archive git+https://github.com/ocaml/opam-repository-archive";
-    line "    - opam pin add -y -k rsync --recursive -n --with-version dev .";
-    if do_full_opam then begin
-      line "    - opam install -y coq";
-      line "    - (for i in $(opam pin | grep cpp2v-core/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
-      line "    - opam install -y rocq-bluerock-brick";
-      line "    - (for i in $(opam pin | grep cpp2v/ | awk '{print $1}'); do opam install -y $i && opam uninstall -a -y $i || exit 1; done)";
-    end else
-      line "    - opam install -y $(opam pin | grep -E '/fmdeps/(cpp2v|vscoq|coq-lsp)' | awk '{print $1}')"
-  end else begin
-    line "    - exit 0";
-  end
 
 let skip_proof_job : unit -> unit = fun () ->
   line "skip-proof-job:";
@@ -1153,44 +894,17 @@ let output_config : unit -> unit = fun () ->
 
   (* create checkout templates *)
   Checkout.make ~name:"main" main_build;
+  Option.iter (Checkout.make ~name:"ref") ref_build;
 
-  begin match ref_build with None -> () | Some(ref_build) ->
-    Checkout.make ~name:"ref" ref_build
-  end;
-
-  if skip_proofs then
-    skip_proof_job ()
-  else begin
-    if do_docker_opam then
-      opam_docker_install_job ()
-    else
-      opam_install_job do_opam do_full_opam ();
-    (* This conditional is ad-hoc, but both [do_full_opam] and [do_docker_opam]
-    are only set in special scheduled pipelines that are only needed for these jobs. *)
-    if not do_full_opam && not do_docker_opam then begin
-      (* Main bhv build with performance comparison support. *)
-      main_job ();
-      (* Stop here if we only want the full job. *)
-      match trigger.only_full_build with true -> () | false ->
-      (* Proof tidy job. *)
-      proof_tidy ();
-      (* Triggered NOVA build.
-        NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-        trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-      if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-      (* fm-docs build *)
-      if trigger.trigger_kind = "default" || needs_full_build "fm-docs" then begin
-        fm_docs_job ()
-      end;
-      (* Extra cpp2v-core builds. *)
-      if needs_full_build "cpp2v-core" then begin
-        cpp2v_core_llvm_job 18;
-        cpp2v_core_llvm_job 20;
-        (*cpp2v_core_public_job oc "16";*)
-        cpp2v_core_pages_job ();
-      end
-    end
-  end;
+  match skip_proofs with true -> skip_proof_job () | false ->
+    (* Main bhv build with performance comparison support. *)
+    main_job ();
+    (* Stop here if we only want the full job. *)
+    match trigger.only_full_build with true -> () | false ->
+    (* Triggered NOVA build.
+      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
+      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
+    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
 
 end
 

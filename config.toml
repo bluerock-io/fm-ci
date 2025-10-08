@@ -1,7 +1,7 @@
 # Version configuration (all mandatory).
 
 [versions]
-image = "2025-08-19"
+image = "2025-10-07"
 main_llvm = 19
 
 # Repository configuration template:
@@ -36,88 +36,9 @@ main_llvm = 19
 
 [repo.fm-ci]
 
-[repo.coq]
-branch = "br-master"
-deps = ["fm-ci"]
-vendored = true
-
-[repo.stdlib]
-branch = "br-master"
-deps = ["fm-ci", "coq"]
-vendored = true
-
-[repo.stdpp]
-branch = "br-master"
-deps = ["fm-ci", "stdlib"]
-vendored = true
-
-[repo.iris]
-branch = "br-master"
-deps = ["fm-ci", "stdpp"]
-vendored = true
-
-[repo.coq-ext-lib]
-branch = "br-master"
-deps = ["fm-ci", "stdlib"]
-vendored = true
-
-[repo.coq-equations]
-branch = "br-main"
-deps = ["fm-ci", "stdlib"]
-vendored = true
-
-[repo.elpi]
-branch = "br-master"
-deps = ["fm-ci"]
-vendored = true
-
-[repo.coq-elpi]
-branch = "br-master"
-deps = ["fm-ci", "stdlib", "elpi"]
-vendored = true
-
-[repo.coq-lsp]
-branch = "br-main"
-deps = ["fm-ci", "coq"]
-vendored = true
-
-[repo.vscoq]
-branch = "br-main"
-deps = ["fm-ci", "coq"]
-vendored = true
-
-[repo.fm-tools]
-deps = ["fm-ci"]
-
-[repo.cpp2v-core]
-gitlab = "cpp2v-core"
-branch = "master"
-deps = [
-  "fm-ci", "iris", "coq-elpi", "coq-equations",
-  "coq-ext-lib" # currently redundant, not worth removing
-]
-
-[repo.cpp2v]
-gitlab = "cpp2v"
-branch = "master"
-deps = [
-  "fm-ci", "cpp2v-core", "coq-ext-lib"
-]
-
 [repo.nova-interface]
 deps = [
-  "fm-ci", "cpp2v"
-]
-
-[repo.fm-docs]
-branch = "main"
-deps = [
-  "fm-ci", "cpp2v"
-]
-
-[repo.micro-docs]
-deps = [
-  "cpp2v"
+  "fm-ci"
 ]
 
 [repo.NOVA]
@@ -125,12 +46,12 @@ gitlab = "NOVA"
 path = "./NOVA"
 branch = "proof"
 deps = [
-  "fm-ci", "cpp2v"
+  "fm-ci", "nova-interface"
 ]
 
 [repo.bhv]
 gitlab = "bhv"
 path = "."
 deps = [
-  "fm-ci", "cpp2v"
+  "fm-ci", "nova-interface"
 ]

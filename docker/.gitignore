@@ -3,3 +3,4 @@ files/_dune-project
 files/fm-artifact.zip
 gitlab-login
 gitlab-token
+dockerhub-token
