@@ -36,11 +36,6 @@ main_llvm = 19
 
 [repo.fm-ci]
 
-[repo.nova-interface]
-deps = [
-  "fm-ci"
-]
-
 [repo.NOVA]
 gitlab = "NOVA"
 path = "./NOVA"
