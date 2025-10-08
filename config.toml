@@ -41,12 +41,12 @@ gitlab = "NOVA"
 path = "./NOVA"
 branch = "proof"
 deps = [
-  "fm-ci", "nova-interface"
+  "fm-ci"
 ]
 
 [repo.bhv]
 gitlab = "bhv"
 path = "."
 deps = [
-  "fm-ci", "nova-interface"
+  "fm-ci", "NOVA"
 ]
