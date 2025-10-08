@@ -1,7 +1,7 @@
 # Version configuration (all mandatory).
 
 [versions]
-image = "2025-10-03"
+image = "2025-10-07"
 main_llvm = 19
 
 # Repository configuration template:

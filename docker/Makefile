@@ -7,7 +7,7 @@ FM_RELEASE_FULL_VERSION = 2025-08-19
 # We keep $(BR_IMAGE_VERSION) purely internal.
 # FM_RELEASE_FULL_VERSION = $(BR_FMDEPS_VERSION)-$(BR_IMAGE_VERSION)
 RELEASE_TAG ?= fm-opam-release-latest
-SL_RELEASE_TAG ?= 2025-10-03-llvm-19
+SL_RELEASE_TAG ?= 2025-10-07-llvm-19
 # Bump the following number when pushing new images with the same version
 # numbers. This is necessary to properly invalidate the NOVA cache.
 BR_IMAGE_VERSION ?= 1
