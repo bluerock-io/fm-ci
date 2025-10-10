@@ -337,9 +337,6 @@ let repos_needing_full_build : Config.repo list =
   let with_branch = List.filter_map has_branch repos_with_hashes in
   Config.all_downstream_from ~config with_branch
 
-let needs_full_build : string -> bool = fun name ->
-  List.exists (fun repo -> repo.Config.name = name) repos_needing_full_build
-
 let _ =
   (* Output info: repositories needing a full build. *)
   perr "Repositories needing a full build:";
@@ -796,87 +793,6 @@ let main_job : unit -> unit = fun () ->
   line "    reports:";
   line "      codequality: gl-code-quality-report.json"
 
-let nova_job : unit -> unit = fun () ->
-  let (nova, (_, hashes)) =
-    try
-      List.find (fun (repo, _) -> repo.Config.name = "NOVA") repos_with_hashes
-    with Not_found -> panic "No config found for NOVA."
-  in
-  let nova_branch =
-    match hashes.mr_branch with
-    | None    -> nova.Config.main_branch
-    | Some(_) ->
-    let mr = match mr with None -> assert false | Some(mr) -> mr in
-    mr.Info.mr_source_branch_name
-  in
-  let gen_name =
-    let master_merge =
-      match mr with Some(_) -> false | None ->
-      let Info.{project_name; commit_branch; _} = trigger in
-      match commit_branch with
-      | None                -> false
-      | Some(commit_branch) -> main_branch project_name = commit_branch
-    in
-    "gen-installed-artifact" ^ (if master_merge then "" else "-mr")
-  in
-  line "";
-  line "%s:" gen_name;
-  common ~image:(with_registry main_image) ~dune_cache:true;
-  line "  script:";
-  line "    # Print environment for debug.";
-  line "    - env";
-  line "    # Save job ID since the current job creates the artifact.";
-  line "    - echo \"ARTIFACT_CI_JOB_ID=$CI_JOB_ID\" \
-                > $CI_PROJECT_DIR/build.env";
-  (* We only want fmdeps, so clone everything in a temporary directory. *)
-  line "    # Initialize a bhv checkout.";
-  let clone_dir = "/tmp/clone-dir" in
-  cmd  "    " bhv_cloning clone_dir;
-  line "    - cd %s" clone_dir;
-  cmd  "    - " init_command;
-  cmd  "    " Checkout.use_script ~name:"main";
-  line "    - make statusm | tee $CI_PROJECT_DIR/statusm.txt";
-  line "    - grep \"^fmdeps/\" $CI_PROJECT_DIR/statusm.txt \
-                > $CI_PROJECT_DIR/gitshas.txt";
-  (* Prepare the dune file structure for the cache. *)
-  line "    # Create Directory structure for dune";
-  line "    - mkdir -p ~/.cache/ ~/.config/dune/";
-  line "    - cp support/fm/dune_config ~/.config/dune/config";
-  (* Prepare and move to the build directory. *)
-  line "    # Build directory preparation.";
-  line "    - mkdir %s" build_dir;
-  line "    - mv fmdeps dune-workspace %s/" build_dir;
-  line "    - cd %s" build_dir;
-  (* Build and create installed artifact. *)
-  line "    # Build.";
-  line "    - dune build -j ${NJOBS} @install 2>&1 | filter-dune-output";
-  line "    # Prepare installed artifact.";
-  line "    - rm -rf $CI_PROJECT_DIR/fm-install";
-  line "    - mkdir $CI_PROJECT_DIR/fm-install";
-  line "    - dune install --prefix=$CI_PROJECT_DIR/fm-install \
-                --display=quiet";
-  line "    - find $CI_PROJECT_DIR/fm-install -name '*.v' -o -name '*.ml' | while read i; do > $i; done";
-  line "  artifacts:";
-  line "    when: always";
-  line "    expose_as: \"installed fmdeps\"";
-  line "    name: cpp2v";
-  line "    paths:";
-  line "      - fm-install";
-  line "      - gitshas.txt";
-  line "    reports:";
-  line "      dotenv: build.env";
-  line "";
-  line "NOVA-trigger:";
-  line "  needs:";
-  line "    - %s" gen_name;
-  line "  variables:";
-  line "    UPSTREAM_IMAGE: \"%s\"" main_image;
-  line "    UPSTREAM_CI_JOB_ID: $ARTIFACT_CI_JOB_ID";
-  line "  trigger:";
-  line "    project: bedrocksystems/NOVA";
-  line "    branch: %s" nova_branch;
-  line "    strategy: depend"
-
 
 let skip_proof_job : unit -> unit = fun () ->
   line "skip-proof-job:";
@@ -898,14 +814,7 @@ let output_config : unit -> unit = fun () ->
 
   match skip_proofs with true -> skip_proof_job () | false ->
     (* Main bhv build with performance comparison support. *)
-    main_job ();
-    (* Stop here if we only want the full job. *)
-    match trigger.only_full_build with true -> () | false ->
-    (* Triggered NOVA build.
-      NOTE: We must always rebuild the NOVA artifact if we are in a "default"
-      trigger. The artifacts of these jobs are relied upon by NOVA CI. *)
-    if trigger.trigger_kind = "default" || needs_full_build "NOVA" then nova_job ();
-
+    main_job ()
 end
 
 let _ =
